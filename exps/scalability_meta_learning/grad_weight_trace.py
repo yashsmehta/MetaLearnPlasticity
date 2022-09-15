@@ -19,9 +19,18 @@ def generate_oja_trajectory(layer, state, parameters, x):
     '''
     simulate the network for t time steps with Oja's rule
     shape(x): (trajectory_length, input_dim)
-    return list of weights (weight trajectory for this dataset(x)) 
+    return list of flattened weight jnp arrays (weight trajectory for this dataset(x)) 
     '''
     weight_trajectory = []
+
+    for i in range(len(x)):
+        state.input_nodes.rate = x[i]
+        state = layer.update_state(state, parameters)
+        parameters = layer.update_parameters(state, parameters)
+        # weight_trajectory.append(
+        #     jnp.array([item for sublist in parameters.edges.weight for item in sublist])
+        # )
+        weight_trajectory.append(parameters.edges.weight)
 
     return weight_trajectory
 
@@ -30,12 +39,14 @@ def trajectory_loss(layer, state, parameters, x, weight_trajectory):
     function that simulates the student network with the same sequence of data
     and calculates the loss with weight trajectory
     '''
+    mse_loss = 0
     for i in range(len(x)):
         state.input_nodes.rate = x[i]
         state = layer.update_state(state, parameters)
         parameters = layer.update_parameters(state, parameters)
+        mse_loss+=jnp.mean(optax.l2_loss(parameters.edges.weight, weight_trajectory[i]))
 
-    return jnp.mean(optax.l2_loss(jnp.squeeze(parameters.edges.weight), weight_trajectory))
+    return mse_loss 
 
 def init_network_layer(seed, m, n):
     '''
@@ -59,7 +70,7 @@ def main():
     key = jax.random.PRNGKey(0)
     meta_epochs = 1 
     num_trajectories=1
-    length=20
+    length=3
 
     teacher_layer, teacher_state, teacher_parameters = init_network_layer(seed=0, m=5, n=1)
     A = np.zeros((3, 3, 3))
@@ -82,7 +93,8 @@ def main():
         for _ in range(num_trajectories):
             key, _ = jax.random.split(key)
             x = generate_gaussian_input(key, length, input_dim=5)
-            weight_trajectory = generate_oja_trajectory(teacher_layer, teacher_state, teacher_parameters)
+            weight_trajectory = generate_oja_trajectory(teacher_layer, teacher_state, teacher_parameters, x)
+            print("weight trajectory", weight_trajectory)
             grads = jax.grad(loss, argnums=1)(student_state, student_parameters, x, weight_trajectory)
             updates, opt_state = optimizer.update(
                 grads.edges.coefficient_matrix,
