@@ -2,3 +2,7 @@ data/*
 playground/out/*
 plastix/*
 playground/grave/*
+**.out
+**.ipynb
+**.pyc
+__pycache__/
