@@ -29,8 +29,8 @@ def generate_weight_trajectory(layer, state, parameters, x):
 
     for i in range(len(x)):
         state.input_nodes.rate = x[i]
-        state = layer.update_state(state, parameters, use_jit=False)
-        parameters = layer.update_parameters(state, parameters, use_jit=False)
+        state = layer.update_state(state, parameters, use_jit=True)
+        parameters = layer.update_parameters(state, parameters, use_jit=True)
         # weight_trajectory.append(
         #     jnp.array([item for sublist in parameters.edges.weight for item in sublist])
         # )
@@ -76,9 +76,9 @@ def create_network_layer(m, n):
 
 def main():
     key = jax.random.PRNGKey(0)
-    meta_epochs = 5
-    num_trajectories = 10
-    length = 5
+    meta_epochs = 20 
+    num_trajectories = 1 
+    length = 10 
     m, n = 5, 1
     teacher_layer, teacher_state, teacher_parameters = create_network_layer(
         m, n
@@ -93,10 +93,11 @@ def main():
     student_layer, student_state, student_parameters = create_network_layer(
         m, n
     )
-    student_parameters.edges.coefficient_matrix = 0.01 * jax.random.normal(
+    student_parameters.edges.coefficient_matrix = 1 * jax.random.normal(
         key, (3, 3, 3)
     )
     print("A init:", student_parameters.edges.coefficient_matrix)
+    ainit = student_parameters.edges.coefficient_matrix
     key, _ = jax.random.split(key)
 
     # same random initialization of the weights at the edges for student and teacher network
@@ -112,6 +113,7 @@ def main():
     opt_state = optimizer.init(student_parameters.edges.coefficient_matrix)
 
     for epoch in range(meta_epochs):
+        key = jax.random.PRNGKey(0)
         for _ in range(num_trajectories):
             key, _ = jax.random.split(key)
             x = generate_gaussian(key, (length, m), scale=0.1)
@@ -119,9 +121,10 @@ def main():
                 teacher_layer, teacher_state, teacher_parameters, x
             )
             # print("weight trajectory", weight_trajectory)
-            grads = jax.grad(loss, argnums=1)(
+            loss_t, grads = jax.value_and_grad(loss, argnums=1)(
                 student_state, student_parameters, x, weight_trajectory
             )
+            print("loss: ", loss_t)
             updates, opt_state = optimizer.update(
                 grads.edges.coefficient_matrix,
                 opt_state,
@@ -131,9 +134,13 @@ def main():
                 student_parameters.edges.coefficient_matrix, updates
             )
 
-        state = student_layer.update_state(student_state, student_parameters)
         # print("finished epoch: {}".format(epoch))
+
     print("A final:", student_parameters.edges.coefficient_matrix)
+    print("A difference:", student_parameters.edges.coefficient_matrix - ainit)
+    mat = student_parameters.edges.coefficient_matrix - ainit
+    print(mat[1][1][0])
+    print(mat[0][2][1])
     # print("edge parameters:", parameters.edges.weight)
     # print("edge state:", state.edges.signal)
     # print("prediction: ", state.output_nodes.rate)
