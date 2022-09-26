@@ -28,11 +28,13 @@ def trajectory_loss(x, weights, A, weight_trajectory):
 
 
 def update_weights(x, weights, A):
-    y = jnp.dot(x, weights)
+    y = forward_pass(x, weights)
     dw = A[0] * x * y + A[1] * jnp.multiply(y**2, weights)
     weights += dw
     return weights
 
+def forward_pass(x, weights):
+    return jnp.dot(x, weights)
 
 def main():
     key = jax.random.PRNGKey(0)
@@ -87,7 +89,7 @@ def main():
         print()
 
     df = pd.DataFrame(expdata)
-    df.to_csv('exps/scalability_meta_learning/expdata.csv')
+    # df.to_csv('exps/scalability_meta_learning/expdata.csv')
 
 
 if __name__ == "__main__":
