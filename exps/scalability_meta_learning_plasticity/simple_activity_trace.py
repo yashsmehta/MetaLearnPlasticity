@@ -8,24 +8,28 @@ def generate_gaussian(key, shape, scale=0.1):
     return scale * jax.random.normal(key, (shape))
 
 @jax.jit
-def generate_weight_trajectory(x, weights, A):
-    weight_trajectory = []
+def generate_activity_trajectory(x, weights, A):
+    activity_trajectory = []
 
     for i in range(len(x)):
         weights = update_weights(x[i], weights, A)
-        weight_trajectory.append(weights)
+        y = forward_pass(x[i], weights)
+        activity_trajectory.append(y)
 
-    return weight_trajectory
+    return activity_trajectory
 
 @jax.jit
-def trajectory_loss(x, weights, A, weight_trajectory):
+def trajectory_loss(x, weights, A, activity_trajectory):
     loss = 0
 
     for i in range(len(x)):
         weights = update_weights(x[i], weights, A)
-        loss += jnp.mean(optax.l2_loss(weights, weight_trajectory[i]))
+        y = forward_pass(x[i], weights)
+        loss += jnp.mean(optax.l2_loss(y, activity_trajectory[i]))
     return loss
 
+def forward_pass(x, weights):
+    return jnp.dot(x, weights)
 
 def update_weights(x, weights, A):
     y = forward_pass(x, weights)
@@ -33,14 +37,11 @@ def update_weights(x, weights, A):
     weights += dw
     return weights
 
-def forward_pass(x, weights):
-    return jnp.dot(x, weights)
-
 def main():
     key = jax.random.PRNGKey(0)
-    meta_epochs = 50 
+    meta_epochs = 100 
     num_trajectories = 100
-    length = 10 
+    length = 10
     m, n = 5, 1
     teacher_weights = generate_gaussian(key, (m, n), scale=1 / (m + n))
     student_weights = generate_gaussian(key, (m, n), scale=1 / (m + n))
@@ -64,12 +65,12 @@ def main():
         for _ in range(num_trajectories):
             key, _ = jax.random.split(key)
             x = generate_gaussian(key, (length, m), scale=0.1)
-            weight_trajectory = generate_weight_trajectory(
+            activity_trajectory = generate_activity_trajectory(
                 x, teacher_weights, A_teacher
             )
             # print("weight trajectory", weight_trajectory)
             loss_t, grads = jax.value_and_grad(trajectory_loss, argnums=2)(
-                x, student_weights, A_student, weight_trajectory
+                x, student_weights, A_student, activity_trajectory
             )
             expdata['loss'][-1]+=loss_t
 
@@ -89,7 +90,7 @@ def main():
         print()
 
     df = pd.DataFrame(expdata)
-    # df.to_csv('exps/scalability_meta_learning/expdata.csv')
+    # df.to_csv('exps/scalability_meta_learning/expdata-activity.csv')
 
 
 if __name__ == "__main__":
