@@ -26,10 +26,16 @@ def trajectory_loss(x, weights, A, weight_trajectory):
         loss += jnp.mean(optax.l2_loss(weights, weight_trajectory[i]))
     return loss
 
+# NOTE IMP: adding shape(5, 1) with (5,) gives a (5,5) array!
+def update_weights_old(x, weights, A):
+    y = forward_pass(x, weights)
+    dw = A[0] * x * y + A[1] * jnp.multiply(y**2, weights)
+    weights += dw
+    return weights
 
 def update_weights(x, weights, A):
     y = forward_pass(x, weights)
-    dw = A[0] * x * y + A[1] * jnp.multiply(y**2, weights)
+    dw = A[0] * (x * y).reshape(weights.shape) + A[1] * jnp.multiply(y**2, weights)
     weights += dw
     return weights
 
@@ -38,17 +44,16 @@ def forward_pass(x, weights):
 
 def main():
     key = jax.random.PRNGKey(0)
-    meta_epochs = 50 
-    num_trajectories = 100
+    meta_epochs = 10
+    num_trajectories = 50 
     length = 10 
     m, n = 5, 1
+    # same random initialization of the weights for student and teacher network
     teacher_weights = generate_gaussian(key, (m, n), scale=1 / (m + n))
     student_weights = generate_gaussian(key, (m, n), scale=1 / (m + n))
     A_teacher = jnp.array([1, -1])
     A_student = jnp.zeros((2,))
     key, _ = jax.random.split(key)
-
-    # same random initialization of the weights at the edges for student and teacher network
 
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(A_student)
