@@ -1,15 +1,18 @@
-from re import L
 import jax
 import jax.numpy as jnp
 import optax
 import time
 import pandas as pd
+from pathlib import Path
+import os
+
+import utils
 
 def generate_gaussian(key, shape, scale=0.1):
     return scale * jax.random.normal(key, (shape))
 
 @jax.jit
-def generate_weight_trajectory(x, weights, A):
+def generate_weight_trajec(x, weights, A):
     weight_trajectory = []
 
     for i in range(len(x)):
@@ -19,7 +22,7 @@ def generate_weight_trajectory(x, weights, A):
     return weight_trajectory
 
 @jax.jit
-def generate_activity_trajectory(x, weights, A):
+def generate_activity_trajec(x, weights, A):
     activity_trajectory = []
 
     for i in range(len(x)):
@@ -30,7 +33,7 @@ def generate_activity_trajectory(x, weights, A):
     return activity_trajectory
 
 @jax.jit
-def weight_trajectory_loss(x, weights, A, weight_trajectory):
+def calc_loss_weight_trajec(x, weights, A, weight_trajectory):
     loss = 0
 
     for i in range(len(x)):
@@ -39,7 +42,7 @@ def weight_trajectory_loss(x, weights, A, weight_trajectory):
     return loss
 
 @jax.jit
-def activity_trajectory_loss(x, weights, A, activity_trajectory):
+def calc_loss_activity_trajec(x, weights, A, activity_trajectory):
     loss = 0
 
     for i in range(len(x)):
@@ -68,11 +71,21 @@ document the following:
 """
 
 def main():
-    key = jax.random.PRNGKey(0)
-    meta_epochs = 3
-    num_trajectories = 10
-    length = 10 
-    m, n = 10, 1
+    (
+        m, 
+        n, 
+        non_linearity,
+        plasticity_rule,
+        meta_epochs,
+        num_trajec,
+        len_trajec,
+        type,
+        log_expdata,
+        jobid,
+    ) = utils.parse_args()
+
+    key = jax.random.PRNGKey(jobid)
+    path = "explogs/"
     teacher_weights = generate_gaussian(key, (m, n), scale=1 / (m + n))
     student_weights = generate_gaussian(key, (m, n), scale=1 / (m + n))
     A_teacher = jnp.array([1, -1])
@@ -80,13 +93,14 @@ def main():
     key, _ = jax.random.split(key)
     config = {}
     config['type'] = 'activity'
-    # same random initialization of the weights at the edges for student and teacher network
+
+    # same random initialization of the weights at the start for student and teacher network
     if(config['type'] == 'activity'):
-        trajectory_loss = activity_trajectory_loss
-        generate_trajectory = generate_activity_trajectory
+        calc_loss_trajec = calc_loss_activity_trajec
+        generate_trajec = generate_activity_trajec
     else:
-        trajectory_loss = weight_trajectory_loss
-        generate_trajectory = generate_weight_trajectory
+        calc_loss_trajec = calc_loss_weight_trajec
+        generate_trajec = generate_weight_trajec
 
 
     optimizer = optax.adam(learning_rate=1e-3)
@@ -100,14 +114,14 @@ def main():
         key = jax.random.PRNGKey(0)
         expdata['loss'].append(0.)
 
-        for _ in range(num_trajectories):
+        for _ in range(num_trajec):
             key, _ = jax.random.split(key)
-            x = generate_gaussian(key, (length, m), scale=0.1)
-            trajectory = generate_trajectory(
+            x = generate_gaussian(key, (len_trajec, m), scale=0.1)
+            trajectory = generate_trajec(
                 x, teacher_weights, A_teacher
             )
             # print("weight trajectory", weight_trajectory)
-            loss_t, grads = jax.value_and_grad(trajectory_loss, argnums=2)(
+            loss_t, grads = jax.value_and_grad(calc_loss_trajec, argnums=2)(
                 x, student_weights, A_student, trajectory
             )
             expdata['loss'][-1]+=loss_t
@@ -128,7 +142,14 @@ def main():
         print()
 
     df = pd.DataFrame(expdata)
-    # df.to_csv('exps/scalability_meta_learning/expdata-w-non-linear.csv')
+    if log_expdata:
+        use_header = False
+        Path(path).mkdir(parents=True, exist_ok=True)
+        if not os.path.exists(path + "ml-plasticity.csv"):
+            use_header = True
+
+        df.to_csv(path + "ml-plasticity.csv", mode="a", header=use_header)
+        print("wrote training logs to disk")
 
 
 if __name__ == "__main__":
