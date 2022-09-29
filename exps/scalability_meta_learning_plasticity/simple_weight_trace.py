@@ -17,6 +17,25 @@ def generate_weight_trajectory(x, weights, A):
 
     return weight_trajectory
 
+def scan(weights, x, A):
+    
+    weight = update_weights(x, weights, A)
+    
+    return weight, weight
+
+@jax.jit
+def generate_weight_trajectory_lax(x, weights, A):
+    
+    A = A
+    weights = weights
+    
+    scan2 = lambda weight, x: scan(weight, x, A)
+    
+    a, b = jax.lax.scan(scan2, init = weights, xs=x)
+    
+    return list(b)
+
+
 @jax.jit
 def trajectory_loss(x, weights, A, weight_trajectory):
     loss = 0
@@ -41,6 +60,39 @@ def update_weights(x, weights, A):
 
 def forward_pass(x, weights):
     return jnp.dot(x, weights)
+
+def time_test():
+    key = jax.random.PRNGKey(0)
+    meta_epochs = 10
+    num_trajectories = 50 
+    length = 10
+    m, n = 5, 1
+    # same random initialization of the weights for student and teacher network
+    teacher_weights = generate_gaussian(key, (m, n), scale=1 / (m + n))
+    student_weights = generate_gaussian(key, (m, n), scale=1 / (m + n))
+    A_teacher = jnp.array([1, -1])
+    A_student = jnp.zeros((2,))
+    key, _ = jax.random.split(key)
+    
+    key, _ = jax.random.split(key)
+    start_time = time.time()
+    x = generate_gaussian(key, (length, m), scale=0.1)
+    weight_trajectory = generate_weight_trajectory_lax(
+        x, teacher_weights, A_teacher
+    )
+    print(f'lax ran in {time.time() - start_time}')
+    
+    start_time = time.time()
+    x = generate_gaussian(key, (length, m), scale=0.1)
+    weight_trajectory = generate_weight_trajectory(
+        x, teacher_weights, A_teacher
+    )
+    print(f'for-loop ran in {time.time() - start_time}')
+    
+    return
+    
+    
+    
 
 def main():
     key = jax.random.PRNGKey(0)
@@ -69,7 +121,7 @@ def main():
         for _ in range(num_trajectories):
             key, _ = jax.random.split(key)
             x = generate_gaussian(key, (length, m), scale=0.1)
-            weight_trajectory = generate_weight_trajectory(
+            weight_trajectory = generate_weight_trajectory_lax(
                 x, teacher_weights, A_teacher
             )
             # print("weight trajectory", weight_trajectory)
@@ -98,4 +150,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    #main()
+    time_test()
