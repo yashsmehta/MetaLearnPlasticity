@@ -26,8 +26,8 @@ def scan(weights, x, A):
 @jax.jit
 def generate_weight_trajectory_lax(x, weights, A):
     
-    A = A
-    weights = weights
+    #A = A
+    #weights = weights
     
     scan2 = lambda weight, x: scan(weight, x, A)
     
@@ -65,7 +65,7 @@ def time_test():
     key = jax.random.PRNGKey(0)
     meta_epochs = 10
     num_trajectories = 50 
-    length = 10
+    length = 500
     m, n = 5, 1
     # same random initialization of the weights for student and teacher network
     teacher_weights = generate_gaussian(key, (m, n), scale=1 / (m + n))
@@ -121,7 +121,7 @@ def main():
         for _ in range(num_trajectories):
             key, _ = jax.random.split(key)
             x = generate_gaussian(key, (length, m), scale=0.1)
-            weight_trajectory = generate_weight_trajectory_lax(
+            weight_trajectory = generate_weight_trajectory(
                 x, teacher_weights, A_teacher
             )
             # print("weight trajectory", weight_trajectory)
@@ -150,5 +150,5 @@ def main():
 
 
 if __name__ == "__main__":
-    #main()
+   #main()
     time_test()
