@@ -65,9 +65,14 @@ def calc_loss_activity_trajec(weights, x, A, activity_trajectory):
 def update_weights(weights, x, A):
     act = forward(weights, x)
     for layer in range(len(weights)):
-        dw = A[0] * jnp.outer(act[layer + 1], act[layer]) + A[1] * weights[layer] * act[layer+1]**2
-        if(dw.shape != weights[layer].shape):
-            raise Exception ("dw and w should be of the same shape to prevent broadcasting while adding")
+        dw = (
+            A[0] * jnp.outer(act[layer + 1], act[layer])
+            + A[1] * weights[layer] * act[layer + 1] ** 2
+        )
+        if dw.shape != weights[layer].shape:
+            raise Exception(
+                "dw and w should be of the same shape to prevent broadcasting while adding"
+            )
         weights[layer] += dw
 
     return weights
@@ -91,11 +96,11 @@ def main():
         hidden_layers,
         hidden_neurons,
         non_linear,  # True/False
-        plasticity_rule, # Hebb, Oja, Random
+        plasticity_rule,  # Hebb, Oja, Random
         meta_epochs,
         num_trajec,
         len_trajec,
-        type, # activity trace, weight trace
+        type,  # activity trace, weight trace
         log_expdata,
         jobid,
     ) = utils.parse_args()
@@ -113,10 +118,17 @@ def main():
     for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
         teacher_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
         student_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
-        
-    A_teacher = jnp.array([1, -1])
-    A_student = jnp.zeros((2,))
 
+    if plasticity_rule == "oja":
+        A_teacher = jnp.array([1, -1])
+    elif plasticity_rule == "hebbian":
+        A_teacher = jnp.array([1, 0])
+    elif plasticity_rule == "anti_hebbian":
+        A_teacher = jnp.array([-1, 0])
+    else:
+        raise Exception("plasticity rule must be either oja, hebbian, anti_hebbian")
+
+    A_student = jnp.zeros((2,))
     key, _ = jax.random.split(key)
     global forward
     forward = Partial((network_forward), non_linear)
@@ -133,9 +145,10 @@ def main():
 
     expdata = {"A_0": [], "A_1": [], "loss": []}
     expdata["epoch"] = jnp.arange(meta_epochs)
+    start_time = time.time()
 
+    print("A teacher", A_teacher)
     for epoch in range(meta_epochs):
-        start_time = time.time()
         key = jax.random.PRNGKey(0)
         expdata["loss"].append(0.0)
 
@@ -160,11 +173,45 @@ def main():
         expdata["A_1"].append(A_student[1])
 
         print("A student:", A_student)
-        print("loss (all trajectories):", expdata["loss"][-1])
-        print("epoch {} time: {}s".format(epoch, time.time() - start_time))
+        print("cumilative loss", expdata["loss"][-1])
         print()
 
+    avg_backprop_time = round(
+        (time.time() - start_time) / (meta_epochs * num_trajec), 3
+    )
     df = pd.DataFrame(expdata)
+    pd.set_option("display.max_columns", None)
+
+    (
+        df["input_dim"],
+        df["output_dim"],
+        df["hidden_layers"],
+        df["hidden_neurons"],
+        df["non_linear"],
+        df["plasticity_rule"],
+        df["meta_epochs"],
+        df["num_trajec"],
+        df["len_trajec"],
+        df["type"],
+        df["jobid"],
+        df["avg_backprop_time"],
+    ) = (
+        input_dim,
+        output_dim,
+        hidden_layers,
+        hidden_neurons,
+        non_linear,
+        plasticity_rule,
+        meta_epochs,
+        num_trajec,
+        len_trajec,
+        type,
+        jobid,
+        avg_backprop_time,
+    )
+
+    print(df.head(5))
+
     if log_expdata:
         use_header = False
         Path(path).mkdir(parents=True, exist_ok=True)
@@ -174,18 +221,6 @@ def main():
         df.to_csv(path + "ml-plasticity.csv", mode="a", header=use_header)
         print("wrote training logs to disk")
 
-
-"""
-log following variables:
-    m/n neurons
-    trajectory update time
-    # learnable params
-    underlying update rule
-    type: activity / weight trace
-    non-linearity
-    sparsity
-    noise added
-"""
 
 if __name__ == "__main__":
     main()
