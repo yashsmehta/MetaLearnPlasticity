@@ -5,4 +5,5 @@ playground/grave/*
 **.out
 **.ipynb
 **.pyc
+**explogs/
 __pycache__/
