@@ -105,14 +105,21 @@ def main():
         jobid,
     ) = utils.parse_args()
 
-    # key = jax.random.PRNGKey(jobid)
-    key = jax.random.PRNGKey(0)
+    key = jax.random.PRNGKey(jobid)
+
+    device = jax.lib.xla_bridge.get_backend().platform  # are we running on CPU or GPU?
+
     path = "explogs/"
     layer_sizes = [input_dim]
+
     for _ in range(hidden_layers):
         layer_sizes.append(hidden_neurons)
+        if(hidden_neurons == -1):
+            raise Exception("specify the number of hidden neurons in the network")
+
     layer_sizes.append(output_dim)
     print("network architecture: ", layer_sizes)
+    print("platform: ", device)
     teacher_weights, student_weights = [], []
 
     for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
@@ -195,6 +202,8 @@ def main():
         df["type"],
         df["jobid"],
         df["avg_backprop_time"],
+        df["device"],
+        df["num_meta_params"],
     ) = (
         input_dim,
         output_dim,
@@ -208,6 +217,8 @@ def main():
         type,
         jobid,
         avg_backprop_time,
+        device,
+        len(A_student),
     )
 
     print(df.head(5))
