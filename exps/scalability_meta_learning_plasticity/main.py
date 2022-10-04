@@ -52,8 +52,12 @@ def calc_loss_weight_trajec(weights, x, A, weight_trajectory):
 @jax.jit
 def calc_loss_activity_trajec(weights, x, A, activity_trajectory):
     loss = 0
-
+    use_input = False
     for i in range(len(x)):
+        if (not use_input):
+            use_input = True
+            continue
+
         weights = update_weights(weights, x[i], A)
         act = forward(weights, x[i])
         teacher_act = activity_trajectory[i]
@@ -102,6 +106,7 @@ def main():
         len_trajec,
         type,  # activity trace, weight trace
         log_expdata,
+        output_file,
         jobid,
     ) = utils.parse_args()
 
@@ -130,10 +135,10 @@ def main():
         A_teacher = jnp.array([1, -1])
     elif plasticity_rule == "hebbian":
         A_teacher = jnp.array([1, 0])
-    elif plasticity_rule == "anti_hebbian":
-        A_teacher = jnp.array([-1, 0])
+    elif plasticity_rule == "random":
+        A_teacher = generate_gaussian(key, (2,), scale=1)
     else:
-        raise Exception("plasticity rule must be either oja, hebbian, anti_hebbian")
+        raise Exception("plasticity rule must be either oja, hebbian or random")
 
     A_student = jnp.zeros((2,))
     key, _ = jax.random.split(key)
@@ -226,10 +231,10 @@ def main():
     if log_expdata:
         use_header = False
         Path(path).mkdir(parents=True, exist_ok=True)
-        if not os.path.exists(path + "ml-plasticity.csv"):
+        if not os.path.exists(path + "{}.csv".format(output_file)):
             use_header = True
 
-        df.to_csv(path + "ml-plasticity.csv", mode="a", header=use_header)
+        df.to_csv(path + "{}.csv".format(output_file), mode="a", header=use_header)
         print("wrote training logs to disk")
 
 
