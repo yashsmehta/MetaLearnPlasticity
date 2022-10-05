@@ -12,7 +12,7 @@ def parse_args():
     ap.add_argument("-input_dim", type=int, default=5)
     ap.add_argument("-output_dim", type=int, default=1)
     ap.add_argument("-hidden_layers", type=int, default=0)
-    ap.add_argument("-hidden_neurons", type=int, default=10)
+    ap.add_argument("-hidden_neurons", type=int, default=-1)
     ap.add_argument(
         "-non_linear", type=str_to_bool, nargs="?", const=True, default=False
     )
@@ -24,6 +24,7 @@ def parse_args():
     ap.add_argument(
         "-log_expdata", type=str_to_bool, nargs="?", const=True, default=False
     )
+    ap.add_argument("-output_file", type=str, default="tester")
     ap.add_argument("-jobid", type=int, default=0)
     args = ap.parse_args()
 
@@ -39,5 +40,6 @@ def parse_args():
         args.len_trajec,
         args.type,
         args.log_expdata,
+        args.output_file,
         args.jobid,
     )
