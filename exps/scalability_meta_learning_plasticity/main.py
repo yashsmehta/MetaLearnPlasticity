@@ -133,9 +133,9 @@ def main():
         student_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
 
     if plasticity_rule == "oja":
-        A_teacher = jnp.array([1, -1])
+        A_teacher = jnp.array([1., -1.])
     elif plasticity_rule == "hebbian":
-        A_teacher = jnp.array([1, 0])
+        A_teacher = jnp.array([1., 0])
     elif plasticity_rule == "random":
         A_teacher = generate_gaussian(key, (2,), scale=1)
     else:
@@ -143,6 +143,7 @@ def main():
 
     key, key2 = jax.random.split(key)
     A_student = generate_gaussian(key2, (2,), scale=1e-3)
+    # A_student = jnp.array([1., -1.])
 
     global forward
     forward = Partial((network_forward), non_linear)
