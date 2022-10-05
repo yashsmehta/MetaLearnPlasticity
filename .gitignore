@@ -6,4 +6,5 @@ playground/grave/*
 **.ipynb
 **.pyc
 **explogs/
+.vscode/*
 __pycache__/
