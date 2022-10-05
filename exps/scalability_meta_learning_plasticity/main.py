@@ -11,7 +11,8 @@ import utils
 
 
 def generate_gaussian(key, shape, scale=0.1):
-    return scale * jax.random.normal(key, (shape))
+    assert type(shape) is tuple,"shape passed must be a tuple"
+    return scale * jax.random.normal(key, shape)
 
 
 @jax.jit
@@ -140,8 +141,9 @@ def main():
     else:
         raise Exception("plasticity rule must be either oja, hebbian or random")
 
-    A_student = jnp.zeros((2,))
-    key, _ = jax.random.split(key)
+    key, key2 = jax.random.split(key)
+    A_student = generate_gaussian(key2, (2,), scale=1e-3)
+
     global forward
     forward = Partial((network_forward), non_linear)
     # same random initialization of the weights at the start for student and teacher network
