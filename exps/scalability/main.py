@@ -47,7 +47,7 @@ def calc_loss_weight_trajec(weights, x, A, weight_trajectory):
         teacher_weights = weight_trajectory[i]
         for j in range(len(weights)):
             loss += jnp.mean(optax.l2_loss(weights[j], teacher_weights[j]))
-    return loss
+    return loss / len(weight_trajectory)
 
 
 @jax.jit
@@ -64,7 +64,7 @@ def calc_loss_activity_trajec(weights, x, A, activity_trajectory):
         teacher_act = activity_trajectory[i]
         for j in range(len(act)):
             loss += jnp.mean(optax.l2_loss(act[j], teacher_act[j]))
-    return loss
+    return loss / len(activity_trajectory)
 
 
 def update_weights(weights, x, A):
@@ -184,11 +184,12 @@ def main():
             )
             A_student = optax.apply_updates(A_student, updates)
 
+        expdata["loss"][-1] = 1000 * expdata["loss"][-1] / num_trajec 
         expdata["A_0"].append(A_student[0])
         expdata["A_1"].append(A_student[1])
 
         print("A student:", A_student)
-        print("cumilative loss", expdata["loss"][-1])
+        print("1000x avg. avg. loss (across num_trajectories, len_trajectory)", expdata["loss"][-1])
         print()
 
     avg_backprop_time = round(
