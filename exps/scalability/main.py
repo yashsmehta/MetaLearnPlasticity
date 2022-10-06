@@ -23,10 +23,8 @@ def generate_weight_trajec(x, weights, A):
 
     for i in range(len(x)):
         weights = update_weights(weights, x[i], A)
-        weight_trajectory.append(weights)
-
+        weight_trajectory.append([w.copy() for w in weights])
     return weight_trajectory
-
 
 @jax.jit
 def generate_activity_trajec(x, weights, A):
@@ -44,11 +42,13 @@ def generate_activity_trajec(x, weights, A):
 def calc_loss_weight_trajec(weights, x, A, weight_trajectory):
     loss = 0
 
-    for i in range(len(x)):
+    for i in range(len(weight_trajectory)):
         weights = update_weights(weights, x[i], A)
         teacher_weights = weight_trajectory[i]
+
         for j in range(len(weights)):
             loss += jnp.mean(optax.l2_loss(weights[j], teacher_weights[j]))
+
     return loss / len(weight_trajectory)
 
 
@@ -57,7 +57,7 @@ def calc_loss_activity_trajec(weights, x, A, activity_trajectory):
     loss = 0 
     use_input = True
 
-    for i in range(len(x)):
+    for i in range(len(activity_trajectory)):
         loss_t = []
         weights = update_weights(weights, x[i], A)
         act = forward(weights, x[i])
@@ -135,7 +135,7 @@ def main():
     for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
         teacher_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
         student_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
-
+    
     if plasticity_rule == "oja":
         A_teacher = jnp.array([1., -1.])
     elif plasticity_rule == "hebbian":
@@ -146,8 +146,8 @@ def main():
         raise Exception("plasticity rule must be either oja, hebbian or random")
 
     key, key2 = jax.random.split(key)
-    # A_student = generate_gaussian(key2, (2,), scale=1e-3)
-    A_student = jnp.array([1., -1.])
+    A_student = generate_gaussian(key2, (2,), scale=1e-3)
+    # A_student = jnp.array([1., -1.])
     # A_student = jnp.zeros((2,))
 
     global forward
@@ -178,10 +178,14 @@ def main():
             x = generate_gaussian(key, (len_trajec, input_dim), scale=0.1)
             trajectory = generate_trajec(x, teacher_weights, A_teacher)
 
-            loss_t, grads = jax.value_and_grad(calc_loss_trajec, argnums=2)(
+            loss_T, grads = jax.value_and_grad(calc_loss_trajec, argnums=2)(
                 student_weights, x, A_student, trajectory
             )
-            expdata["loss"][-1] += loss_t
+
+            # loss_T = calc_loss_trajec(
+            #     student_weights, x, A_student, trajectory
+            # )
+            expdata["loss"][-1] += loss_T
 
             updates, opt_state = optimizer.update(
                 grads,
