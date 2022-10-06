@@ -1,11 +1,13 @@
 import jax
 import jax.numpy as jnp
+from jax.tree_util import Partial
 import optax
 import time
 import pandas as pd
+import time
+import math
 from pathlib import Path
 import os
-from jax.tree_util import Partial
 
 import utils
 
@@ -142,8 +144,9 @@ def main():
         raise Exception("plasticity rule must be either oja, hebbian or random")
 
     key, key2 = jax.random.split(key)
-    A_student = generate_gaussian(key2, (2,), scale=1e-3)
+    # A_student = generate_gaussian(key2, (2,), scale=1e-3)
     # A_student = jnp.array([1., -1.])
+    A_student = jnp.zeros((2,))
 
     global forward
     forward = Partial((network_forward), non_linear)
@@ -171,7 +174,7 @@ def main():
             key, _ = jax.random.split(key)
             x = generate_gaussian(key, (len_trajec, input_dim), scale=0.1)
             trajectory = generate_trajec(x, teacher_weights, A_teacher)
-            # print("weight trajectory", trajectory)
+
             loss_t, grads = jax.value_and_grad(calc_loss_trajec, argnums=2)(
                 student_weights, x, A_student, trajectory
             )
@@ -184,12 +187,12 @@ def main():
             )
             A_student = optax.apply_updates(A_student, updates)
 
-        expdata["loss"][-1] = 1000 * expdata["loss"][-1] / num_trajec 
+        expdata["loss"][-1] = round(math.sqrt(expdata["loss"][-1] / num_trajec), 6)
         expdata["A_0"].append(A_student[0])
         expdata["A_1"].append(A_student[1])
 
         print("A student:", A_student)
-        print("1000x avg. avg. loss (across num_trajectories, len_trajectory)", expdata["loss"][-1])
+        print("sqrt avg. avg. loss (across num_trajectories, len_trajectory)", expdata["loss"][-1])
         print()
 
     avg_backprop_time = round(
