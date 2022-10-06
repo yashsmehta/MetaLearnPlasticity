@@ -163,15 +163,16 @@ def main():
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(A_student)
 
-    expdata = {"A_0": [], "A_1": [], "loss": []}
+    expdata = {"A_0": [], "A_1": [], "loss": [], "grads_norm": []}
     expdata["epoch"] = jnp.arange(meta_epochs)
     start_time = time.time()
-    print("A teacher", A_teacher)
-    print("A student", A_student)
+    print("[init] A teacher", A_teacher)
+    print("[init] A student", A_student)
 
     for epoch in range(meta_epochs):
         key = jax.random.PRNGKey(0)
         expdata["loss"].append(0.0)
+        expdata["grads_norm"].append([])
 
         for _ in range(num_trajec):
             key, _ = jax.random.split(key)
@@ -181,10 +182,9 @@ def main():
             loss_T, grads = jax.value_and_grad(calc_loss_trajec, argnums=2)(
                 student_weights, x, A_student, trajectory
             )
+            # loss_T = calc_loss_trajec(student_weights, x, A_student, trajectory)
 
-            # loss_T = calc_loss_trajec(
-            #     student_weights, x, A_student, trajectory
-            # )
+            expdata["grads_norm"][-1].append(jnp.linalg.norm(grads))
             expdata["loss"][-1] += loss_T
 
             updates, opt_state = optimizer.update(
@@ -195,6 +195,7 @@ def main():
             A_student = optax.apply_updates(A_student, updates)
 
         expdata["loss"][-1] = round(math.sqrt(expdata["loss"][-1] / num_trajec), 6)
+        expdata["grads_norm"][-1] = [round(math.sqrt(grad_norm_t), 6) for grad_norm_t in expdata["grads_norm"][-1]]
         expdata["A_0"].append(A_student[0])
         expdata["A_1"].append(A_student[1])
 
@@ -202,6 +203,7 @@ def main():
         print("sqrt avg. avg. loss (across num_trajectories, len_trajectory)", expdata["loss"][-1])
         print()
 
+    print("note: logs store sqrt of loss & gradient norm")
     avg_backprop_time = round(
         (time.time() - start_time) / (meta_epochs * num_trajec), 3
     )
