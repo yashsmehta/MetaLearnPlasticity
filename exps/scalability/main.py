@@ -54,18 +54,20 @@ def calc_loss_weight_trajec(weights, x, A, weight_trajectory):
 
 @jax.jit
 def calc_loss_activity_trajec(weights, x, A, activity_trajectory):
-    loss = 0
-    use_input = False
-    for i in range(len(x)):
-        if (not use_input):
-            use_input = True
-            continue
+    loss = 0 
+    use_input = True
 
+    for i in range(len(x)):
+        loss_t = []
         weights = update_weights(weights, x[i], A)
         act = forward(weights, x[i])
         teacher_act = activity_trajectory[i]
         for j in range(len(act)):
-            loss += jnp.mean(optax.l2_loss(act[j], teacher_act[j]))
+            loss_t.append(jnp.mean(optax.l2_loss(act[j], teacher_act[j])))
+        if(not use_input):
+            loss_t.pop(0)
+        loss += sum(loss_t)
+
     return loss / len(activity_trajectory)
 
 
@@ -145,8 +147,8 @@ def main():
 
     key, key2 = jax.random.split(key)
     # A_student = generate_gaussian(key2, (2,), scale=1e-3)
-    # A_student = jnp.array([1., -1.])
-    A_student = jnp.zeros((2,))
+    A_student = jnp.array([1., -1.])
+    # A_student = jnp.zeros((2,))
 
     global forward
     forward = Partial((network_forward), non_linear)
@@ -164,8 +166,9 @@ def main():
     expdata = {"A_0": [], "A_1": [], "loss": []}
     expdata["epoch"] = jnp.arange(meta_epochs)
     start_time = time.time()
-
     print("A teacher", A_teacher)
+    print("A student", A_student)
+
     for epoch in range(meta_epochs):
         key = jax.random.PRNGKey(0)
         expdata["loss"].append(0.0)
