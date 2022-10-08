@@ -1,4 +1,5 @@
 import argparse
+import math
 
 def str_to_bool(value):
     if value.lower() in {"false", "f", "0", "no", "n"}:
@@ -43,3 +44,13 @@ def parse_args():
         args.output_file,
         args.jobid,
     )
+
+def A_index_to_powers(index):
+    i = (index % (3 ** 2)) % 3
+    j = math.floor((index % (3 ** 2)) / 3)
+    k = math.floor(index / (3 ** 2))
+    return i,j,k
+
+def powers_to_A_index(i, j, k):
+    index = (3 ** 0) * i + (3 ** 1) * j + (3 ** 2) * k
+    return index
