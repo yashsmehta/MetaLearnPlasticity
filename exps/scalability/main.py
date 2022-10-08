@@ -1,3 +1,7 @@
+import os
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
 import jax
 import jax.numpy as jnp
 from jax.tree_util import Partial
@@ -7,13 +11,12 @@ import pandas as pd
 import time
 import math
 from pathlib import Path
-import os
 
 import utils
 
 
 def generate_gaussian(key, shape, scale=0.1):
-    assert type(shape) is tuple,"shape passed must be a tuple"
+    assert type(shape) is tuple, "shape passed must be a tuple"
     return scale * jax.random.normal(key, shape)
 
 
@@ -25,6 +28,7 @@ def generate_weight_trajec(x, weights, A):
         weights = update_weights(weights, x[i], A)
         weight_trajectory.append([w.copy() for w in weights])
     return weight_trajectory
+
 
 @jax.jit
 def generate_activity_trajec(x, weights, A):
@@ -54,7 +58,7 @@ def calc_loss_weight_trajec(weights, x, A, weight_trajectory):
 
 @jax.jit
 def calc_loss_activity_trajec(weights, x, A, activity_trajectory):
-    loss = 0 
+    loss = 0
     use_input = True
 
     for i in range(len(activity_trajectory)):
@@ -64,7 +68,7 @@ def calc_loss_activity_trajec(weights, x, A, activity_trajectory):
         teacher_act = activity_trajectory[i]
         for j in range(len(act)):
             loss_t.append(jnp.mean(optax.l2_loss(act[j], teacher_act[j])))
-        if(not use_input):
+        if not use_input:
             loss_t.pop(0)
         loss += sum(loss_t)
 
@@ -78,6 +82,7 @@ def update_weights(weights, x, A):
             A[0] * jnp.outer(act[layer + 1], act[layer])
             + A[1] * weights[layer] * act[layer + 1] ** 2
         )
+
         if dw.shape != weights[layer].shape:
             raise Exception(
                 "dw and w should be of the same shape to prevent broadcasting while adding"
@@ -124,7 +129,7 @@ def main():
 
     for _ in range(hidden_layers):
         layer_sizes.append(hidden_neurons)
-        if(hidden_neurons == -1):
+        if hidden_neurons == -1:
             raise Exception("specify the number of hidden neurons in the network")
 
     layer_sizes.append(output_dim)
@@ -135,11 +140,11 @@ def main():
     for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
         teacher_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
         student_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
-    
+
     if plasticity_rule == "oja":
-        A_teacher = jnp.array([1., -1.])
+        A_teacher = jnp.array([1.0, -1.0])
     elif plasticity_rule == "hebbian":
-        A_teacher = jnp.array([1., 0])
+        A_teacher = jnp.array([1.0, 0])
     elif plasticity_rule == "random":
         A_teacher = generate_gaussian(key, (2,), scale=1)
     else:
@@ -195,12 +200,18 @@ def main():
             A_student = optax.apply_updates(A_student, updates)
 
         expdata["loss"][-1] = round(math.sqrt(expdata["loss"][-1] / num_trajec), 6)
-        expdata["grads_norm"][-1] = [round(math.sqrt(grad_norm_t), 6) for grad_norm_t in expdata["grads_norm"][-1]]
+        expdata["grads_norm"][-1] = [
+            round(math.sqrt(grad_norm_t), 6)
+            for grad_norm_t in expdata["grads_norm"][-1]
+        ]
         expdata["A_0"].append(A_student[0])
         expdata["A_1"].append(A_student[1])
 
         print("A student:", A_student)
-        print("sqrt avg. avg. loss (across num_trajectories, len_trajectory)", expdata["loss"][-1])
+        print(
+            "sqrt avg. avg. loss (across num_trajectories, len_trajectory)",
+            expdata["loss"][-1],
+        )
         print()
 
     print("note: logs store sqrt of loss & gradient norm")
