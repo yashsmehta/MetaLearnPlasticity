@@ -1,6 +1,4 @@
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
-
 import jax
 import jax.numpy as jnp
 from jax.tree_util import Partial
@@ -11,13 +9,32 @@ import numpy as np
 import time
 import math
 from pathlib import Path
-
 import utils
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
 
 def generate_gaussian(key, shape, scale=0.1):
     assert type(shape) is tuple,"shape passed must be a tuple"
     return scale * jax.random.normal(key, shape)
 
+def generate_A_teacher(plasticity_rule, key):
+    if plasticity_rule == "oja":
+        A_teacher = np.zeros((27,))
+        A_teacher[[utils.powers_to_A_index(1,1,0), utils.powers_to_A_index(0,2,1)]] = 1, -1
+        A_teacher = jnp.array(A_teacher)
+
+    elif plasticity_rule == "hebbian":
+        A_teacher = jnp.array([1., 0])
+    elif plasticity_rule == "random":
+        A_teacher = generate_gaussian(key, (2,), scale=1)
+    else:
+        raise Exception("plasticity rule must be either oja, hebbian or random")
+    return A_teacher
+
+def generate_mask(plasticity_rule, num_meta_params):
+    mask = np.zeros((27,))
+    mask[[utils.powers_to_A_index(1,1,0), utils.powers_to_A_index(0, 2, 1)]] = 1
+    return jnp.array(mask)
 
 @jax.jit
 def generate_weight_trajec(x, weights, A):
@@ -73,9 +90,9 @@ def calc_loss_activity_trajec(weights, x, A, activity_trajectory):
 
     return loss / len(activity_trajectory)
 
-@jax.jit
-def update_weights(weights, x, A):
+def update_weights_(mask, weights, x, A):
     act = forward(weights, x)
+    A = A * mask
     for layer in range(len(weights)):
         dw = 0
         for index in range(len(A)):
@@ -91,7 +108,7 @@ def update_weights(weights, x, A):
     return weights
 
 
-def network_forward(non_linear, weights, x):
+def forward_(non_linear, weights, x):
     act = [jnp.expand_dims(x, 1)]
     for layer in range(len(weights)):
         h = jnp.dot(weights[layer], act[-1])
@@ -140,17 +157,9 @@ def main():
         teacher_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
         student_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
     
-    if plasticity_rule == "oja":
-        A_teacher = np.zeros((27,))
-        A_teacher[[utils.powers_to_A_index(1,1,0), utils.powers_to_A_index(0,2,1)]] = 1, -1
-        A_teacher = jnp.array(A_teacher)
-
-    elif plasticity_rule == "hebbian":
-        A_teacher = jnp.array([1., 0])
-    elif plasticity_rule == "random":
-        A_teacher = generate_gaussian(key, (2,), scale=1)
-    else:
-        raise Exception("plasticity rule must be either oja, hebbian or random")
+    A_teacher = generate_A_teacher(plasticity_rule, key)
+    num_meta_params = 2
+    mask = generate_mask(plasticity_rule, num_meta_params)
 
     key, key2 = jax.random.split(key)
     # A_student = generate_gaussian(key2, (27,), scale=1e-3)
@@ -158,7 +167,10 @@ def main():
     A_student = jnp.zeros((27,))
 
     global forward
-    forward = jax.jit(Partial((network_forward), non_linear))
+    global update_weights
+    forward = jax.jit(Partial(forward_, non_linear))
+    update_weights = jax.jit(Partial((update_weights_), mask))
+
     # same random initialization of the weights at the start for student and teacher network
     if type == "activity":
         calc_loss_trajec = calc_loss_activity_trajec
