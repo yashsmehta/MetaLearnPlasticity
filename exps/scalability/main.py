@@ -8,6 +8,7 @@ import pandas as pd
 import numpy as np
 import time
 import math
+import random
 from pathlib import Path
 import utils
 
@@ -32,8 +33,17 @@ def generate_A_teacher(plasticity_rule, key):
     return A_teacher
 
 def generate_mask(plasticity_rule, num_meta_params):
-    mask = np.zeros((27,))
-    mask[[utils.powers_to_A_index(1,1,0), utils.powers_to_A_index(0, 2, 1)]] = 1
+    if(plasticity_rule == 'oja'):
+        assert num_meta_params >= 2, "number of meta-parameters must atleast be 2"
+        mask = np.zeros((27,))
+        idx_a0 = utils.powers_to_A_index(1,1,0)
+        idx_a1 = utils.powers_to_A_index(0,2,1)
+        idx = random.sample([i for i in range(27) if i not in [idx_a0, idx_a1]], num_meta_params - 2)
+        idx.extend([idx_a0, idx_a1])
+        mask[idx] = 1
+
+    else: raise Exception("currently masking is only implemented for Oja's rule")
+
     return jnp.array(mask)
 
 @jax.jit
