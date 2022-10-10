@@ -1,17 +1,23 @@
+import os
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
 import jax
 import jax.numpy as jnp
+from jax.tree_util import Partial
 import optax
 import time
 import pandas as pd
+import time
+import math
 from pathlib import Path
-import os
-from jax.tree_util import Partial
 
 import utils
 
 
 def generate_gaussian(key, shape, scale=0.1):
-    return scale * jax.random.normal(key, (shape))
+    assert type(shape) is tuple, "shape passed must be a tuple"
+    return scale * jax.random.normal(key, shape)
 
 
 @jax.jit
@@ -20,8 +26,7 @@ def generate_weight_trajec(x, weights, A):
 
     for i in range(len(x)):
         weights = update_weights(weights, x[i], A)
-        weight_trajectory.append(weights)
-
+        weight_trajectory.append([w.copy() for w in weights])
     return weight_trajectory
 
 
@@ -41,29 +46,33 @@ def generate_activity_trajec(x, weights, A):
 def calc_loss_weight_trajec(weights, x, A, weight_trajectory):
     loss = 0
 
-    for i in range(len(x)):
+    for i in range(len(weight_trajectory)):
         weights = update_weights(weights, x[i], A)
         teacher_weights = weight_trajectory[i]
+
         for j in range(len(weights)):
             loss += jnp.mean(optax.l2_loss(weights[j], teacher_weights[j]))
-    return loss
+
+    return loss / len(weight_trajectory)
 
 
 @jax.jit
 def calc_loss_activity_trajec(weights, x, A, activity_trajectory):
     loss = 0
-    use_input = False
-    for i in range(len(x)):
-        if (not use_input):
-            use_input = True
-            continue
+    use_input = True
 
+    for i in range(len(activity_trajectory)):
+        loss_t = []
         weights = update_weights(weights, x[i], A)
         act = forward(weights, x[i])
         teacher_act = activity_trajectory[i]
         for j in range(len(act)):
-            loss += jnp.mean(optax.l2_loss(act[j], teacher_act[j]))
-    return loss
+            loss_t.append(jnp.mean(optax.l2_loss(act[j], teacher_act[j])))
+        if not use_input:
+            loss_t.pop(0)
+        loss += sum(loss_t)
+
+    return loss / len(activity_trajectory)
 
 
 def update_weights(weights, x, A):
@@ -73,6 +82,7 @@ def update_weights(weights, x, A):
             A[0] * jnp.outer(act[layer + 1], act[layer])
             + A[1] * weights[layer] * act[layer + 1] ** 2
         )
+
         if dw.shape != weights[layer].shape:
             raise Exception(
                 "dw and w should be of the same shape to prevent broadcasting while adding"
@@ -119,7 +129,7 @@ def main():
 
     for _ in range(hidden_layers):
         layer_sizes.append(hidden_neurons)
-        if(hidden_neurons == -1):
+        if hidden_neurons == -1:
             raise Exception("specify the number of hidden neurons in the network")
 
     layer_sizes.append(output_dim)
@@ -132,16 +142,19 @@ def main():
         student_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
 
     if plasticity_rule == "oja":
-        A_teacher = jnp.array([1, -1])
+        A_teacher = jnp.array([1.0, -1.0])
     elif plasticity_rule == "hebbian":
-        A_teacher = jnp.array([1, 0])
+        A_teacher = jnp.array([1.0, 0])
     elif plasticity_rule == "random":
         A_teacher = generate_gaussian(key, (2,), scale=1)
     else:
         raise Exception("plasticity rule must be either oja, hebbian or random")
 
+    key, key2 = jax.random.split(key)
+    # A_student = generate_gaussian(key2, (2,), scale=1e-3)
+    # A_student = jnp.array([1., -1.])
     A_student = jnp.zeros((2,))
-    key, _ = jax.random.split(key)
+
     global forward
     forward = Partial((network_forward), non_linear)
     # same random initialization of the weights at the start for student and teacher network
@@ -155,25 +168,29 @@ def main():
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(A_student)
 
-    expdata = {"A_0": [], "A_1": [], "loss": []}
+    expdata = {"A_0": [], "A_1": [], "loss": [], "grads_norm": []}
     expdata["epoch"] = jnp.arange(meta_epochs)
     start_time = time.time()
+    print("[init] A teacher", A_teacher)
+    print("[init] A student", A_student)
 
-    print("A teacher", A_teacher)
-    for _ in range(meta_epochs):
+    for epoch in range(meta_epochs):
         key = jax.random.PRNGKey(0)
         expdata["loss"].append(0.0)
+        expdata["grads_norm"].append([])
 
         for _ in range(num_trajec):
-            key, key2 = jax.random.split(key)
+            key, _ = jax.random.split(key)
             x = generate_gaussian(key, (len_trajec, input_dim), scale=0.1)
             trajectory = generate_trajec(x, teacher_weights, A_teacher)
-            # print("weight trajectory", trajectory)
-            x = generate_gaussian(key2, (len_trajec, input_dim), scale=0.1)
-            loss_t, grads = jax.value_and_grad(calc_loss_trajec, argnums=2)(
+
+            loss_T, grads = jax.value_and_grad(calc_loss_trajec, argnums=2)(
                 student_weights, x, A_student, trajectory
             )
-            expdata["loss"][-1] += loss_t
+            # loss_T = calc_loss_trajec(student_weights, x, A_student, trajectory)
+
+            expdata["grads_norm"][-1].append(jnp.linalg.norm(grads))
+            expdata["loss"][-1] += loss_T
 
             updates, opt_state = optimizer.update(
                 grads,
@@ -182,13 +199,22 @@ def main():
             )
             A_student = optax.apply_updates(A_student, updates)
 
+        expdata["loss"][-1] = round(math.sqrt(expdata["loss"][-1] / num_trajec), 6)
+        expdata["grads_norm"][-1] = [
+            round(math.sqrt(grad_norm_t), 6)
+            for grad_norm_t in expdata["grads_norm"][-1]
+        ]
         expdata["A_0"].append(A_student[0])
         expdata["A_1"].append(A_student[1])
 
         print("A student:", A_student)
-        print("cumilative loss", expdata["loss"][-1])
+        print(
+            "sqrt avg. avg. loss (across num_trajectories, len_trajectory)",
+            expdata["loss"][-1],
+        )
         print()
 
+    print("note: logs store sqrt of loss & gradient norm")
     avg_backprop_time = round(
         (time.time() - start_time) / (meta_epochs * num_trajec), 3
     )
