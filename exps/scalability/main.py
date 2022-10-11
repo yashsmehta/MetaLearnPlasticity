@@ -12,39 +12,45 @@ import random
 from pathlib import Path
 import utils
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+
 
 def generate_gaussian(key, shape, scale=0.1):
-    assert type(shape) is tuple,"shape passed must be a tuple"
+    assert type(shape) is tuple, "shape passed must be a tuple"
     return scale * jax.random.normal(key, shape)
 
+
 def generate_mask(plasticity_rule, num_meta_params):
-    if(plasticity_rule == 'oja'):
+    if plasticity_rule == "oja":
         assert num_meta_params >= 2, "number of meta-parameters must atleast be 2"
         mask = np.zeros((27,))
-        idx_a0 = utils.powers_to_A_index(1,1,0)
-        idx_a1 = utils.powers_to_A_index(0,2,1)
-        idx = random.sample([i for i in range(27) if i not in [idx_a0, idx_a1]], num_meta_params - 2)
+        idx_a0 = utils.powers_to_A_index(1, 1, 0)
+        idx_a1 = utils.powers_to_A_index(0, 2, 1)
+        idx = random.sample(
+            [i for i in range(27) if i not in [idx_a0, idx_a1]], num_meta_params - 2
+        )
         idx.extend([idx_a0, idx_a1])
         mask[idx] = 1
 
-    else: raise Exception("currently masking is only implemented for Oja's rule")
+    else:
+        raise Exception("currently masking is only implemented for Oja's rule")
 
     return jnp.array(mask)
+
 
 @Partial(jax.jit, static_argnums=(0,))
 def generate_A_teacher(plasticity_rule):
     A_teacher = np.zeros((27,))
     if plasticity_rule == "oja":
-        A_teacher[utils.powers_to_A_index(1,1,0)] = 1
-        A_teacher[utils.powers_to_A_index(0,2,1)] = -1 
+        A_teacher[utils.powers_to_A_index(1, 1, 0)] = 1
+        A_teacher[utils.powers_to_A_index(0, 2, 1)] = -1
 
     elif plasticity_rule == "hebbian":
-        A_teacher[utils.powers_to_A_index(1,1,0)] = 1
+        A_teacher[utils.powers_to_A_index(1, 1, 0)] = 1
 
     elif plasticity_rule == "random":
-        A_teacher[utils.powers_to_A_index(1,1,0)] = np.random.rand()
-        A_teacher[utils.powers_to_A_index(0,2,1)] = -1 * np.random.rand() 
+        A_teacher[utils.powers_to_A_index(1, 1, 0)] = np.random.rand()
+        A_teacher[utils.powers_to_A_index(0, 2, 1)] = -1 * np.random.rand()
 
     else:
         raise Exception("plasticity rule must be either oja, hebbian or random")
@@ -91,7 +97,7 @@ def calc_loss_weight_trajec(weights, x, A, weight_trajectory):
 
 @jax.jit
 def calc_loss_activity_trajec(weights, x, A, activity_trajectory):
-    loss = 0 
+    loss = 0
     use_input = True
 
     for i in range(len(activity_trajectory)):
@@ -101,11 +107,12 @@ def calc_loss_activity_trajec(weights, x, A, activity_trajectory):
         teacher_act = activity_trajectory[i]
         for j in range(len(act)):
             loss_t.append(jnp.mean(optax.l2_loss(act[j], teacher_act[j])))
-        if(not use_input):
+        if not use_input:
             loss_t.pop(0)
         loss += sum(loss_t)
 
     return loss / len(activity_trajectory)
+
 
 def update_weights_(mask, weights, x, A):
     act = forward(weights, x)
@@ -113,8 +120,10 @@ def update_weights_(mask, weights, x, A):
     for layer in range(len(weights)):
         dw = 0
         for index in range(len(A)):
-            i,j,k = utils.A_index_to_powers(index)
-            dw += A[index] * jnp.multiply(jnp.outer(act[layer + 1] ** j, act[layer] ** i), weights[layer] ** k)
+            i, j, k = utils.A_index_to_powers(index)
+            dw += A[index] * jnp.multiply(
+                jnp.outer(act[layer + 1] ** j, act[layer] ** i), weights[layer] ** k
+            )
 
         if dw.shape != weights[layer].shape:
             raise Exception(
@@ -163,7 +172,7 @@ def main():
 
     for _ in range(hidden_layers):
         layer_sizes.append(hidden_neurons)
-        if(hidden_neurons == -1):
+        if hidden_neurons == -1:
             raise Exception("specify the number of hidden neurons in the network")
 
     layer_sizes.append(output_dim)
@@ -176,7 +185,7 @@ def main():
         # student_weights.append(generate_gaussian(key, (n, m), scale=1))
         teacher_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
         student_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
-    
+
     A_teacher = generate_A_teacher(plasticity_rule)
     mask = generate_mask(plasticity_rule, num_meta_params)
 
@@ -199,8 +208,15 @@ def main():
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(A_student)
 
-    expdata = {"A_"+str(i)+str(j)+str(k):[] for i in range(3) for j in range(3) for k in range(3)}
-    expdata.update({"loss": [], "mean_grad_norm": [], "epoch": jnp.arange(meta_epochs+1)})
+    expdata = {
+        "A_" + str(i) + str(j) + str(k): []
+        for i in range(3)
+        for j in range(3)
+        for k in range(3)
+    }
+    expdata.update(
+        {"loss": [], "mean_grad_norm": [], "epoch": jnp.arange(meta_epochs + 1)}
+    )
 
     start_time = time.time()
 
@@ -209,8 +225,8 @@ def main():
         expdata["loss"].append(0)
         expdata["mean_grad_norm"].append(0)
         for idx in range(len(A_student)):
-            pi,pj,pk = utils.A_index_to_powers(idx)
-            expdata["A_{}{}{}".format(pi,pj,pk)].append(A_student[idx])
+            pi, pj, pk = utils.A_index_to_powers(idx)
+            expdata["A_{}{}{}".format(pi, pj, pk)].append(A_student[idx])
 
         for _ in range(num_trajec):
             key, _ = jax.random.split(key)
@@ -233,10 +249,15 @@ def main():
             A_student = optax.apply_updates(A_student, updates)
 
         expdata["loss"][-1] = round(math.sqrt(expdata["loss"][-1] / num_trajec), 6)
-        expdata["mean_grad_norm"][-1] = round(math.sqrt(expdata["mean_grad_norm"][-1] / num_trajec), 6)
+        expdata["mean_grad_norm"][-1] = round(
+            math.sqrt(expdata["mean_grad_norm"][-1] / num_trajec), 6
+        )
 
         print("A student:", A_student)
-        print("sqrt avg. avg. loss (across num_trajectories, len_trajectory)", expdata["loss"][-1])
+        print(
+            "sqrt avg. avg. loss (across num_trajectories, len_trajectory)",
+            expdata["loss"][-1],
+        )
         print()
 
     avg_backprop_time = round(
