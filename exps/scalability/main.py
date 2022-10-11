@@ -193,16 +193,18 @@ def main():
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(A_student)
 
-    expdata = {"A_0": [], "A_1": [], "loss": [], "grads_norm": []}
-    expdata["epoch"] = jnp.arange(meta_epochs)
-    start_time = time.time()
-    # print("[init] A teacher", A_teacher)
-    # print("[init] A student", A_student)
+    expdata = {"A_"+str(i)+str(j)+str(k):[] for i in range(3) for j in range(3) for k in range(3)}
+    expdata.update({"loss": [], "mean_grad_norm": [], "epoch": jnp.arange(meta_epochs+1)})
 
-    for epoch in range(meta_epochs):
+    start_time = time.time()
+
+    for epoch in range(meta_epochs + 1):
         key = jax.random.PRNGKey(0)
-        expdata["loss"].append(0.0)
-        expdata["grads_norm"].append([])
+        expdata["loss"].append(0)
+        expdata["mean_grad_norm"].append(0)
+        for idx in range(len(A_student)):
+            pi,pj,pk = utils.A_index_to_powers(idx)
+            expdata["A_{}{}{}".format(pi,pj,pk)].append(A_student[idx])
 
         for _ in range(num_trajec):
             key, _ = jax.random.split(key)
@@ -214,7 +216,7 @@ def main():
             )
             # loss_T = calc_loss_trajec(student_weights, x, A_student, trajectory)
 
-            expdata["grads_norm"][-1].append(jnp.linalg.norm(grads))
+            expdata["mean_grad_norm"][-1] += jnp.linalg.norm(grads)
             expdata["loss"][-1] += loss_T
 
             updates, opt_state = optimizer.update(
@@ -225,9 +227,7 @@ def main():
             A_student = optax.apply_updates(A_student, updates)
 
         expdata["loss"][-1] = round(math.sqrt(expdata["loss"][-1] / num_trajec), 6)
-        expdata["grads_norm"][-1] = [round(math.sqrt(grad_norm_t), 6) for grad_norm_t in expdata["grads_norm"][-1]]
-        expdata["A_0"].append(A_student[utils.powers_to_A_index(1,1,0)])
-        expdata["A_1"].append(A_student[utils.powers_to_A_index(0,2,1)])
+        expdata["mean_grad_norm"][-1] = round(math.sqrt(expdata["mean_grad_norm"][-1] / num_trajec), 6)
 
         print("A student:", A_student)
         print("sqrt avg. avg. loss (across num_trajectories, len_trajectory)", expdata["loss"][-1])
