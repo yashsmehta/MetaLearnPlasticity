@@ -18,20 +18,6 @@ def generate_gaussian(key, shape, scale=0.1):
     assert type(shape) is tuple,"shape passed must be a tuple"
     return scale * jax.random.normal(key, shape)
 
-def generate_A_teacher(plasticity_rule, key):
-    if plasticity_rule == "oja":
-        A_teacher = np.zeros((27,))
-        A_teacher[[utils.powers_to_A_index(1,1,0), utils.powers_to_A_index(0,2,1)]] = 1, -1
-        A_teacher = jnp.array(A_teacher)
-
-    elif plasticity_rule == "hebbian":
-        A_teacher = jnp.array([1., 0])
-    elif plasticity_rule == "random":
-        A_teacher = generate_gaussian(key, (2,), scale=1)
-    else:
-        raise Exception("plasticity rule must be either oja, hebbian or random")
-    return A_teacher
-
 def generate_mask(plasticity_rule, num_meta_params):
     if(plasticity_rule == 'oja'):
         assert num_meta_params >= 2, "number of meta-parameters must atleast be 2"
@@ -46,6 +32,26 @@ def generate_mask(plasticity_rule, num_meta_params):
 
     return jnp.array(mask)
 
+@Partial(jax.jit, static_argnums=(0,))
+def generate_A_teacher(plasticity_rule):
+    A_teacher = np.zeros((27,))
+    if plasticity_rule == "oja":
+        A_teacher[utils.powers_to_A_index(1,1,0)] = 1
+        A_teacher[utils.powers_to_A_index(0,2,1)] = -1 
+
+    elif plasticity_rule == "hebbian":
+        A_teacher[utils.powers_to_A_index(1,1,0)] = 1
+
+    elif plasticity_rule == "random":
+        A_teacher[utils.powers_to_A_index(1,1,0)] = np.random.rand()
+        A_teacher[utils.powers_to_A_index(0,2,1)] = -1 * np.random.rand() 
+
+    else:
+        raise Exception("plasticity rule must be either oja, hebbian or random")
+
+    return jnp.array(A_teacher)
+
+
 @jax.jit
 def generate_weight_trajec(x, weights, A):
     weight_trajectory = []
@@ -55,6 +61,7 @@ def generate_weight_trajec(x, weights, A):
         weight_trajectory.append([w.copy() for w in weights])
 
     return weight_trajectory
+
 
 @jax.jit
 def generate_activity_trajec(x, weights, A):
@@ -170,12 +177,11 @@ def main():
         teacher_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
         student_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
     
-    A_teacher = generate_A_teacher(plasticity_rule, key)
+    A_teacher = generate_A_teacher(plasticity_rule)
     mask = generate_mask(plasticity_rule, num_meta_params)
 
     key, key2 = jax.random.split(key)
     # A_student = generate_gaussian(key2, (27,), scale=1e-3)
-    # A_student = jnp.array([1., -1.])
     A_student = jnp.zeros((27,))
 
     global forward, update_weights
@@ -233,7 +239,6 @@ def main():
         print("sqrt avg. avg. loss (across num_trajectories, len_trajectory)", expdata["loss"][-1])
         print()
 
-    print("note: logs store sqrt of loss & gradient norm")
     avg_backprop_time = round(
         (time.time() - start_time) / (meta_epochs * num_trajec), 3
     )
