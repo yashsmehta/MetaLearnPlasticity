@@ -141,6 +141,7 @@ def main():
         num_trajec,
         len_trajec,
         type,  # activity trace, weight trace
+        num_meta_params,
         log_expdata,
         output_file,
         jobid,
@@ -164,11 +165,12 @@ def main():
     teacher_weights, student_weights = [], []
 
     for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
+        # teacher_weights.append(generate_gaussian(key, (n, m), scale=1))
+        # student_weights.append(generate_gaussian(key, (n, m), scale=1))
         teacher_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
         student_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
     
     A_teacher = generate_A_teacher(plasticity_rule, key)
-    num_meta_params = 2
     mask = generate_mask(plasticity_rule, num_meta_params)
 
     key, key2 = jax.random.split(key)
@@ -176,8 +178,7 @@ def main():
     # A_student = jnp.array([1., -1.])
     A_student = jnp.zeros((27,))
 
-    global forward
-    global update_weights
+    global forward, update_weights
     forward = jax.jit(Partial(forward_, non_linear))
     update_weights = jax.jit(Partial((update_weights_), mask))
 
@@ -268,7 +269,7 @@ def main():
         jobid,
         avg_backprop_time,
         device,
-        len(A_student),
+        num_meta_params,
     )
 
     print(df.head(5))

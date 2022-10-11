@@ -22,6 +22,7 @@ def parse_args():
     ap.add_argument("-num_trajec", type=int, default=10)
     ap.add_argument("-len_trajec", type=int, default=5)
     ap.add_argument("-type", type=str, default="weight")
+    ap.add_argument("-num_meta_params", type=int, default=2)
     ap.add_argument(
         "-log_expdata", type=str_to_bool, nargs="?", const=True, default=False
     )
@@ -40,6 +41,7 @@ def parse_args():
         args.num_trajec,
         args.len_trajec,
         args.type,
+        args.num_meta_params,
         args.log_expdata,
         args.output_file,
         args.jobid,
