@@ -107,7 +107,7 @@ def generate_measurement_noise(key, layer_sizes, type, scale):
 
     return measurement_noise
 
-def calc_loss_weight_trajec_(sparsity_mask, weights, x, A, weight_trajectory):
+def calc_loss_weight_trajec_(measurement_noise, sparsity_mask, weights, x, A, weight_trajectory):
     loss = 0
 
     for i in range(len(weight_trajectory)):
@@ -115,7 +115,7 @@ def calc_loss_weight_trajec_(sparsity_mask, weights, x, A, weight_trajectory):
         teacher_weights = weight_trajectory[i]
 
         for j in range(len(weights)):
-            loss_mat = optax.l2_loss(weights[j], teacher_weights[j])
+            loss_mat = optax.l2_loss(weights[j], (teacher_weights[j] + measurement_noise[j]))
             assert sparsity_mask[j].shape == loss_mat.shape, "loss_mat and sparsity map shapes must match!"
             loss += jnp.mean(jnp.multiply(sparsity_mask[j], loss_mat))
 
@@ -236,7 +236,7 @@ def main():
         calc_loss_trajec = jax.jit(Partial((calc_loss_activity_trajec_), measurement_noise, sparsity_mask))
         generate_trajec = generate_activity_trajec
     else:
-        calc_loss_trajec = jax.jit(Partial((calc_loss_weight_trajec_), sparsity_mask))
+        calc_loss_trajec = jax.jit(Partial((calc_loss_weight_trajec_), measurement_noise, sparsity_mask))
         generate_trajec = generate_weight_trajec
 
     optimizer = optax.adam(learning_rate=1e-3)
