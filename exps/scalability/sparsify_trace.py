@@ -85,7 +85,7 @@ def generate_sparsity_mask(layer_sizes, type, sparsity):
     sparsity_mask = []
     if type == 'activity':
         for m in layer_sizes:
-            sparsity_mask.append(jnp.array(np.random.choice(a=[0,1], size=(m,), p=[1-sparsity, sparsity])))
+            sparsity_mask.append(jnp.array(np.random.choice(a=[0,1], size=(m,1), p=[1-sparsity, sparsity])))
 
     elif type == 'weight':
         for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
