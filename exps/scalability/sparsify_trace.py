@@ -87,10 +87,13 @@ def generate_sparsity_mask(layer_sizes, type, sparsity):
         for m in layer_sizes:
             sparsity_mask.append(jnp.array(np.random.choice(a=[0,1], size=(m,), p=[1-sparsity, sparsity])))
 
+    elif type == 'weight':
+        for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
+            sparsity_mask.append(jnp.array(np.random.choice(a=[0,1], size=(n,m), p=[1-sparsity, sparsity])))
+
     return sparsity_mask
 
-@jax.jit
-def calc_loss_weight_trajec(weights, x, A, weight_trajectory):
+def calc_loss_weight_trajec_(sparsity_mask, weights, x, A, weight_trajectory):
     loss = 0
 
     for i in range(len(weight_trajectory)):
@@ -98,7 +101,8 @@ def calc_loss_weight_trajec(weights, x, A, weight_trajectory):
         teacher_weights = weight_trajectory[i]
 
         for j in range(len(weights)):
-            loss += jnp.mean(optax.l2_loss(weights[j], teacher_weights[j]))
+            loss_mat = optax.l2_loss(weights[j], teacher_weights[j])
+            loss += jnp.mean(jnp.multiply(sparsity_mask[j], loss_mat))
 
     return loss / len(weight_trajectory)
 
@@ -206,7 +210,7 @@ def main():
     forward = jax.jit(Partial(forward_, non_linear))
     update_weights = jax.jit(Partial((update_weights_), mask))
 
-    sparsity = 0.8
+    sparsity = 1.
     # sparsity of 0.9 retains ~90% of the trace
     sparsity_mask = generate_sparsity_mask(layer_sizes, type, sparsity)
 
@@ -214,7 +218,7 @@ def main():
         calc_loss_trajec = jax.jit(Partial((calc_loss_activity_trajec_), sparsity_mask))
         generate_trajec = generate_activity_trajec
     else:
-        calc_loss_trajec = calc_loss_weight_trajec
+        calc_loss_trajec = jax.jit(Partial((calc_loss_weight_trajec_), sparsity_mask))
         generate_trajec = generate_weight_trajec
 
     optimizer = optax.adam(learning_rate=1e-3)
