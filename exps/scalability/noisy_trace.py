@@ -81,15 +81,17 @@ def generate_activity_trajec(x, weights, A):
     return activity_trajectory
 
 
-def generate_sparsity_mask(layer_sizes, type, sparsity):
+def generate_sparsity_mask(key, layer_sizes, type, sparsity):
     sparsity_mask = []
     if type == 'activity':
         for m in layer_sizes:
-            sparsity_mask.append(jnp.array(np.random.choice(a=[0,1], size=(m,1), p=[1-sparsity, sparsity])))
+            key, _ = jax.random.split(key)
+            sparsity_mask.append(jax.random.categorical(key, shape=(m,1), logits=jnp.log(jnp.array([1 - sparsity, sparsity]))))
 
     elif type == 'weight':
         for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
-            sparsity_mask.append(jnp.array(np.random.choice(a=[0,1], size=(n,m), p=[1-sparsity, sparsity])))
+            key, _ = jax.random.split(key)
+            sparsity_mask.append(jax.random.categorical(key, shape=(n,m), logits=jnp.log(jnp.array([1 - sparsity, sparsity]))))
 
     return sparsity_mask
 
@@ -226,10 +228,10 @@ def main():
     forward = jax.jit(Partial(forward_, non_linear))
     update_weights = jax.jit(Partial((update_weights_), mask))
 
-    sparsity = 1.
+    sparsity = 0.7
     scale = 1e-6
     # sparsity of 0.9 retains ~90% of the trace
-    sparsity_mask = generate_sparsity_mask(layer_sizes, type, sparsity)
+    sparsity_mask = generate_sparsity_mask(key, layer_sizes, type, sparsity)
     measurement_noise = generate_measurement_noise(key2, layer_sizes, type, scale)
 
     if type == "activity":
