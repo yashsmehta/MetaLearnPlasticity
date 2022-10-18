@@ -200,6 +200,7 @@ def main():
         len_trajec,
         type,  # activity trace, weight trace
         num_meta_params,
+        l1_eta,
         log_expdata,
         output_file,
         jobid,
