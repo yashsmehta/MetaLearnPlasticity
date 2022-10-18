@@ -135,6 +135,7 @@ def update_weights_(mask, weights, x, A):
 
     return weights
 
+
 def synaptic_dw(local_info, plasticity_mlp):
     # inputs shape: (3,)
     act = local_info
@@ -144,18 +145,23 @@ def synaptic_dw(local_info, plasticity_mlp):
 
     return act
 
+
 def update_weights_mlp_plasticity(weights, x, plasticity_mlp):
     act = forward(weights, x)
 
     for layer in range(len(weights)):
-        n,m = weights[layer].shape
-        in_grid, out_grid = jnp.meshgrid(reshape(act[layer], (m,)), reshape(act[layer+1], (n,)), indexing='ij')
+        n, m = weights[layer].shape
+        in_grid, out_grid = jnp.meshgrid(
+            reshape(act[layer], (m,)), reshape(act[layer + 1], (n,)), indexing="ij"
+        )
 
-        local_info = jnp.hstack((
-            reshape(weights[layer], (m*n,1)), 
-            reshape(in_grid, (m*n,1)), 
-            reshape(out_grid, (m*n,1)), 
-            ))
+        local_info = jnp.hstack(
+            (
+                reshape(weights[layer], (m * n, 1)),
+                reshape(in_grid, (m * n, 1)),
+                reshape(out_grid, (m * n, 1)),
+            )
+        )
 
         dw = vmap(synaptic_dw, in_axes=(0, None))(local_info, plasticity_mlp)
         # dw = jit(vmap(synaptic_dw, in_axes=(0, None))(local_info, plasticity_mlp))
@@ -168,6 +174,7 @@ def update_weights_mlp_plasticity(weights, x, plasticity_mlp):
         weights[layer] += dw
 
     return weights
+
 
 def forward_(non_linear, weights, x):
     act = [jnp.expand_dims(x, 1)]
