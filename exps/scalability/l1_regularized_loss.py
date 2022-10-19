@@ -80,7 +80,8 @@ def generate_activity_trajec(x, weights, A):
     return activity_trajectory
 
 
-def calc_loss_weight_trajec(l1_eta, weights, x, A, weight_trajectory):
+def calc_loss_weight_trajec(mask, l1_eta, weights, x, A, weight_trajectory):
+    A = A * mask
     # add L1 regularization term to enforce sparseness
     loss = l1_eta * jnp.sum(jnp.absolute(A))
 
@@ -94,7 +95,8 @@ def calc_loss_weight_trajec(l1_eta, weights, x, A, weight_trajectory):
     return loss / len(weight_trajectory)
 
 
-def calc_loss_activity_trajec(l1_eta, weights, x, A, activity_trajectory):
+def calc_loss_activity_trajec(mask, l1_eta, weights, x, A, activity_trajectory):
+    A = A * mask
     # add L1 regularization term to enforce sparseness
     loss = l1_eta * jnp.sum(jnp.absolute(A))
     use_input = True
@@ -158,6 +160,8 @@ def main():
         type,  # activity trace, weight trace
         num_meta_params,
         l1_eta,
+        sparsity,
+        noise_scale,
         log_expdata,
         output_file,
         jobid,
@@ -190,8 +194,8 @@ def main():
     mask = generate_mask(plasticity_rule, num_meta_params)
 
     key, key2 = jax.random.split(key)
-    # A_student = generate_gaussian(key2, (27,), scale=1e-3)
-    A_student = jnp.zeros((27,))
+    A_student = generate_gaussian(key2, (27,), scale=1e-4)
+    # A_student = jnp.zeros((27,))
 
     global forward, update_weights
     forward = jit(Partial(forward_, non_linear))
@@ -199,10 +203,10 @@ def main():
 
     # same random initialization of the weights at the start for student and teacher network
     if type == "activity":
-        calc_loss_trajec = jit(Partial((calc_loss_activity_trajec), l1_eta))
+        calc_loss_trajec = jit(Partial((calc_loss_activity_trajec), mask, l1_eta))
         generate_trajec = jit(generate_activity_trajec)
     else:
-        calc_loss_trajec = jit(Partial((calc_loss_weight_trajec), l1_eta))
+        calc_loss_trajec = jit(Partial((calc_loss_weight_trajec), mask, l1_eta))
         generate_trajec = jit(generate_weight_trajec)
 
     optimizer = optax.adam(learning_rate=1e-3)
@@ -253,7 +257,6 @@ def main():
             math.sqrt(expdata["mean_grad_norm"][-1] / num_trajec), 6
         )
 
-        print("A student:", A_student)
         print(
             "sqrt avg. avg. loss (across num_trajectories, len_trajectory)",
             expdata["loss"][-1],
