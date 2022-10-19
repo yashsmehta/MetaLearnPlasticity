@@ -173,6 +173,8 @@ def main():
         type,  # activity trace, weight trace
         num_meta_params,
         l1_eta,
+        sparsity,
+        noise_scale,
         log_expdata,
         output_file,
         jobid,
@@ -213,7 +215,6 @@ def main():
     forward = jax.jit(Partial(forward_, non_linear))
     update_weights = jax.jit(Partial((update_weights_), mask))
 
-    sparsity = 0.9 
     # sparsity of 0.9 retains ~90% of the trace
     sparsity_mask = generate_sparsity_mask(key, layer_sizes, type, sparsity)
 

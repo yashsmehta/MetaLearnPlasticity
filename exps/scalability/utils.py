@@ -24,6 +24,8 @@ def parse_args():
     ap.add_argument("-type", type=str, default="activity")
     ap.add_argument("-num_meta_params", type=int, default=2)
     ap.add_argument("-l1_eta", type=float, default=0.0)
+    ap.add_argument("-sparsity", type=float, default=1.0)
+    ap.add_argument("-noise_scale", type=float, default=0.0)
     ap.add_argument(
         "-log_expdata", type=str_to_bool, nargs="?", const=True, default=False
     )
@@ -44,6 +46,8 @@ def parse_args():
         args.type,
         args.num_meta_params,
         args.l1_eta,
+        args.sparsity,
+        args.noise_scale,
         args.log_expdata,
         args.output_file,
         args.jobid,

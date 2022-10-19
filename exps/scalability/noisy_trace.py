@@ -189,6 +189,8 @@ def main():
         type,  # activity trace, weight trace
         num_meta_params,
         l1_eta,
+        sparsity,
+        noise_scale,
         log_expdata,
         output_file,
         jobid,
@@ -222,18 +224,16 @@ def main():
     mask = generate_mask(plasticity_rule, num_meta_params)
 
     key, key2 = jax.random.split(key)
-    # A_student = generate_gaussian(key2, (27,), scale=1e-3)
-    A_student = jnp.zeros((27,))
+    A_student = generate_gaussian(key2, (27,), scale=1e-3)
+    # A_student = jnp.zeros((27,))
 
     global forward, update_weights
     forward = jax.jit(Partial(forward_, non_linear))
     update_weights = jax.jit(Partial((update_weights_), mask))
 
-    sparsity = 0.7
-    scale = 1e-6
     # sparsity of 0.9 retains ~90% of the trace
     sparsity_mask = generate_sparsity_mask(key, layer_sizes, type, sparsity)
-    measurement_noise = generate_measurement_noise(key2, layer_sizes, type, scale)
+    measurement_noise = generate_measurement_noise(key2, layer_sizes, type, noise_scale)
 
     if type == "activity":
         calc_loss_trajec = jax.jit(Partial((calc_loss_activity_trajec_), measurement_noise, sparsity_mask))
