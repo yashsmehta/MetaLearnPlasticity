@@ -189,6 +189,8 @@ def main():
             )
             # loss_T = calc_loss_trajec(student_weights, x, A_student, trajectory)
 
+            print("grads: ", grads)
+            exit()
             expdata["grads_norm"][-1].append(jnp.linalg.norm(grads))
             expdata["loss"][-1] += loss_T
 
