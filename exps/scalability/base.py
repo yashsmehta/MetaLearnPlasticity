@@ -159,6 +159,8 @@ def main():
         type,  # activity trace, weight trace
         num_meta_params,
         l1_eta,
+        sparsity,
+        noise_scale,
         log_expdata,
         output_file,
         jobid,
