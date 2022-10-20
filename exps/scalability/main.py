@@ -21,7 +21,49 @@ def generate_gaussian(key, shape, scale=0.1):
     return scale * jax.random.normal(key, shape)
 
 
-def generate_mask(plasticity_rule, num_meta_params):
+def generate_measurement_noise(key, layer_sizes, type, scale):
+    measurement_noise = []
+    if type == "activity":
+        for m in layer_sizes:
+            measurement_noise.append(scale * jax.random.normal(key, (m, 1)))
+            key, _ = jax.random.split(key)
+
+    elif type == "weight":
+        for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
+            measurement_noise.append(scale * jax.random.normal(key, (n, m)))
+            key, _ = jax.random.split(key)
+
+    return measurement_noise
+
+
+def generate_sparsity_mask(key, layer_sizes, type, sparsity):
+    sparsity_mask = []
+    if type == "activity":
+        for m in layer_sizes:
+            key, _ = jax.random.split(key)
+            sparsity_mask.append(
+                jax.random.categorical(
+                    key,
+                    shape=(m, 1),
+                    logits=jnp.log(jnp.array([1 - sparsity, sparsity])),
+                )
+            )
+
+    elif type == "weight":
+        for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
+            key, _ = jax.random.split(key)
+            sparsity_mask.append(
+                jax.random.categorical(
+                    key,
+                    shape=(n, m),
+                    logits=jnp.log(jnp.array([1 - sparsity, sparsity])),
+                )
+            )
+
+    return sparsity_mask
+
+
+def generate_plasticity_mask(plasticity_rule, num_meta_params):
     if plasticity_rule == "oja":
         assert num_meta_params >= 2, "number of meta-parameters must atleast be 2"
         plasticity_mask = np.zeros((27,))
@@ -34,7 +76,9 @@ def generate_mask(plasticity_rule, num_meta_params):
         plasticity_mask[idx] = 1
 
     else:
-        raise Exception("currently plasticity masking is only implemented for Oja's rule")
+        raise Exception(
+            "currently plasticity masking is only implemented for Oja's rule"
+        )
 
     return jnp.array(plasticity_mask)
 
@@ -79,50 +123,47 @@ def generate_activity_trajec(x, weights, A):
     return activity_trajectory
 
 
-def generate_sparsity_mask(key, layer_sizes, type, sparsity):
-    sparsity_mask = []
-    if type == 'activity':
-        for m in layer_sizes:
-            key, _ = jax.random.split(key)
-            sparsity_mask.append(jax.random.categorical(key, shape=(m,1), logits=jnp.log(jnp.array([1 - sparsity, sparsity]))))
-
-    elif type == 'weight':
-        for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
-            key, _ = jax.random.split(key)
-            sparsity_mask.append(jax.random.categorical(key, shape=(n,m), logits=jnp.log(jnp.array([1 - sparsity, sparsity]))))
-
-    return sparsity_mask
-
-def generate_measurement_noise(key, layer_sizes, type, scale):
-    measurement_noise = []
-    if type == 'activity':
-        for m in layer_sizes:
-            measurement_noise.append(scale * jax.random.normal(key, (m,1)))
-            key,_ = jax.random.split(key)
-
-    elif type == 'weight':
-        for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
-            measurement_noise.append(scale * jax.random.normal(key, (n,m)))
-            key,_ = jax.random.split(key)
-
-    return measurement_noise
-
-def calc_loss_weight_trajec_(measurement_noise, sparsity_mask, weights, x, A, weight_trajectory):
-    loss = 0
+def calc_loss_weight_trajec_(
+    measurement_noise,
+    sparsity_mask,
+    plasticity_mask,
+    l1_eta,
+    weights,
+    x,
+    A,
+    weight_trajectory,
+):
+    # add L1 regularization term to enforce sparseness
+    loss = l1_eta * jnp.sum(jnp.absolute(A * plasticity_mask))
 
     for i in range(len(weight_trajectory)):
         weights = update_weights(weights, x[i], A)
         teacher_weights = weight_trajectory[i]
 
         for j in range(len(weights)):
-            loss_mat = optax.l2_loss(weights[j], (teacher_weights[j] + measurement_noise[j]))
-            assert sparsity_mask[j].shape == loss_mat.shape, "loss_mat and sparsity map shapes must match!"
+            loss_mat = optax.l2_loss(
+                weights[j], (teacher_weights[j] + measurement_noise[j])
+            )
+            assert (
+                sparsity_mask[j].shape == loss_mat.shape
+            ), "loss_mat and sparsity map shapes must match!"
             loss += jnp.mean(jnp.multiply(sparsity_mask[j], loss_mat))
 
     return loss / len(weight_trajectory)
 
-def calc_loss_activity_trajec_(measurement_noise, sparsity_mask, weights, x, A, activity_trajectory):
-    loss = 0
+
+def calc_loss_activity_trajec_(
+    measurement_noise,
+    sparsity_mask,
+    plasticity_mask,
+    l1_eta,
+    weights,
+    x,
+    A,
+    activity_trajectory,
+):
+    # add L1 regularization term to enforce sparseness
+    loss = l1_eta * jnp.sum(jnp.absolute(A * plasticity_mask))
     use_input = True
 
     for i in range(len(activity_trajectory)):
@@ -131,7 +172,9 @@ def calc_loss_activity_trajec_(measurement_noise, sparsity_mask, weights, x, A, 
         act = forward(weights, x[i])
         teacher_act = activity_trajectory[i]
         for j in range(len(act)):
-            assert teacher_act[j].shape == measurement_noise[j].shape, "noise and activation shape must match!"
+            assert (
+                teacher_act[j].shape == measurement_noise[j].shape
+            ), "noise and activation shape must match"
             loss_mat = optax.l2_loss(act[j], (teacher_act[j] + measurement_noise[j]))
             loss_t.append(jnp.mean(jnp.multiply(sparsity_mask[j], loss_mat)))
 
@@ -217,26 +260,43 @@ def main():
         student_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
 
     A_teacher = generate_A_teacher(plasticity_rule)
-    plasticity_mask = generate_mask(plasticity_rule, num_meta_params)
-
     key, key2 = jax.random.split(key)
-    A_student = generate_gaussian(key2, (27,), scale=1e-3)
-    # A_student = jnp.zeros((27,))
+    # A_student = generate_gaussian(key2, (27,), scale=1e-3)
+    A_student = jnp.zeros((27,))
+
+    # sparsity of 0.9 retains ~90% of the trace
+    measurement_noise = generate_measurement_noise(key2, layer_sizes, type, noise_scale)
+    sparsity_mask = generate_sparsity_mask(key, layer_sizes, type, sparsity)
+    plasticity_mask = generate_plasticity_mask(plasticity_rule, num_meta_params)
 
     global forward, update_weights
     forward = jit(Partial(forward_, non_linear))
     update_weights = jit(Partial((update_weights_), plasticity_mask))
 
-    # sparsity of 0.9 retains ~90% of the trace
-    sparsity_mask = generate_sparsity_mask(key, layer_sizes, type, sparsity)
-    measurement_noise = generate_measurement_noise(key2, layer_sizes, type, noise_scale)
-
-    if type == "activity":
-        calc_loss_trajec = jit(Partial((calc_loss_activity_trajec_), measurement_noise, sparsity_mask))
+    if type == "weight":
+        calc_loss_trajec = jit(
+            Partial(
+                (calc_loss_weight_trajec_),
+                measurement_noise,
+                sparsity_mask,
+                plasticity_mask,
+                l1_eta,
+            )
+        )
+        generate_trajec = jit(generate_weight_trajec)
+    elif type == "activity":
+        calc_loss_trajec = jit(
+            Partial(
+                (calc_loss_activity_trajec_),
+                measurement_noise,
+                sparsity_mask,
+                plasticity_mask,
+                l1_eta,
+            )
+        )
         generate_trajec = jit(generate_activity_trajec)
     else:
-        calc_loss_trajec = jit(Partial((calc_loss_weight_trajec_), measurement_noise, sparsity_mask))
-        generate_trajec = jit(generate_weight_trajec)
+        raise Exception("only weight trace or activity trace allowed")
 
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(A_student)
