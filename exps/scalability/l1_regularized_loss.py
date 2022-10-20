@@ -83,6 +83,7 @@ def generate_activity_trajec(x, weights, A):
 def calc_loss_weight_trajec(mask, l1_lmbda, weights, x, A, weight_trajectory):
     A = A * mask
     # add L1 regularization term to enforce sparseness
+    # IMP: L1 regularizer needs to be calculated only on a subset of A + do correct loss normalization
     loss = l1_lmbda * jnp.sum(jnp.absolute(A))
 
     for i in range(len(weight_trajectory)):

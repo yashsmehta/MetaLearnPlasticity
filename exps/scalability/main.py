@@ -133,8 +133,7 @@ def calc_loss_weight_trajec_(
     A,
     weight_trajectory,
 ):
-    # add L1 regularization term to enforce sparseness
-    loss = l1_lmbda * jnp.sum(jnp.absolute(A * plasticity_mask))
+    loss = 0
 
     for i in range(len(weight_trajectory)):
         weights = update_weights(weights, x[i], A)
@@ -148,8 +147,11 @@ def calc_loss_weight_trajec_(
                 sparsity_mask[j].shape == loss_mat.shape
             ), "loss_mat and sparsity map shapes must match!"
             loss += jnp.mean(jnp.multiply(sparsity_mask[j], loss_mat))
+    loss /= len(weight_trajectory)
+    # add L1 regularization term to enforce sparseness
+    loss += l1_lmbda * jnp.sum(jnp.absolute(A * plasticity_mask))
 
-    return loss / len(weight_trajectory)
+    return loss
 
 
 def calc_loss_activity_trajec_(
@@ -162,8 +164,7 @@ def calc_loss_activity_trajec_(
     A,
     activity_trajectory,
 ):
-    # add L1 regularization term to enforce sparseness
-    loss = l1_lmbda * jnp.sum(jnp.absolute(A * plasticity_mask))
+    loss = 0
     use_input = True
 
     for i in range(len(activity_trajectory)):
@@ -181,8 +182,11 @@ def calc_loss_activity_trajec_(
         if not use_input:
             loss_t.pop(0)
         loss += sum(loss_t)
+    loss /= len(activity_trajectory)
+    # add L1 regularization term to enforce sparseness
+    loss += l1_lmbda * jnp.sum(jnp.absolute(A * plasticity_mask))
 
-    return loss / len(activity_trajectory)
+    return loss
 
 
 def update_weights_(plasticity_mask, weights, x, A):
