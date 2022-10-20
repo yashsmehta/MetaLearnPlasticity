@@ -127,14 +127,14 @@ def calc_loss_weight_trajec_(
     measurement_noise,
     sparsity_mask,
     plasticity_mask,
-    l1_eta,
+    l1_lmbda,
     weights,
     x,
     A,
     weight_trajectory,
 ):
     # add L1 regularization term to enforce sparseness
-    loss = l1_eta * jnp.sum(jnp.absolute(A * plasticity_mask))
+    loss = l1_lmbda * jnp.sum(jnp.absolute(A * plasticity_mask))
 
     for i in range(len(weight_trajectory)):
         weights = update_weights(weights, x[i], A)
@@ -156,14 +156,14 @@ def calc_loss_activity_trajec_(
     measurement_noise,
     sparsity_mask,
     plasticity_mask,
-    l1_eta,
+    l1_lmbda,
     weights,
     x,
     A,
     activity_trajectory,
 ):
     # add L1 regularization term to enforce sparseness
-    loss = l1_eta * jnp.sum(jnp.absolute(A * plasticity_mask))
+    loss = l1_lmbda * jnp.sum(jnp.absolute(A * plasticity_mask))
     use_input = True
 
     for i in range(len(activity_trajectory)):
@@ -229,7 +229,7 @@ def main():
         len_trajec,
         type,  # activity trace, weight trace
         num_meta_params,
-        l1_eta,
+        l1_lmbda,
         sparsity,
         noise_scale,
         log_expdata,
@@ -280,7 +280,7 @@ def main():
                 measurement_noise,
                 sparsity_mask,
                 plasticity_mask,
-                l1_eta,
+                l1_lmbda,
             )
         )
         generate_trajec = jit(generate_weight_trajec)
@@ -291,7 +291,7 @@ def main():
                 measurement_noise,
                 sparsity_mask,
                 plasticity_mask,
-                l1_eta,
+                l1_lmbda,
             )
         )
         generate_trajec = jit(generate_activity_trajec)
@@ -371,7 +371,7 @@ def main():
         df["len_trajec"],
         df["type"],
         df["num_meta_params"],
-        df["l1_eta"],
+        df["l1_lmbda"],
         df["sparsity"],
         df["noise_scale"],
         df["avg_backprop_time"],
@@ -389,7 +389,7 @@ def main():
         len_trajec,
         type,
         num_meta_params,
-        l1_eta,
+        l1_lmbda,
         sparsity,
         noise_scale,
         avg_backprop_time,

@@ -80,10 +80,10 @@ def generate_activity_trajec(x, weights, A):
     return activity_trajectory
 
 
-def calc_loss_weight_trajec(mask, l1_eta, weights, x, A, weight_trajectory):
+def calc_loss_weight_trajec(mask, l1_lmbda, weights, x, A, weight_trajectory):
     A = A * mask
     # add L1 regularization term to enforce sparseness
-    loss = l1_eta * jnp.sum(jnp.absolute(A))
+    loss = l1_lmbda * jnp.sum(jnp.absolute(A))
 
     for i in range(len(weight_trajectory)):
         weights = update_weights(weights, x[i], A)
@@ -95,10 +95,10 @@ def calc_loss_weight_trajec(mask, l1_eta, weights, x, A, weight_trajectory):
     return loss / len(weight_trajectory)
 
 
-def calc_loss_activity_trajec(mask, l1_eta, weights, x, A, activity_trajectory):
+def calc_loss_activity_trajec(mask, l1_lmbda, weights, x, A, activity_trajectory):
     A = A * mask
     # add L1 regularization term to enforce sparseness
-    loss = l1_eta * jnp.sum(jnp.absolute(A))
+    loss = l1_lmbda * jnp.sum(jnp.absolute(A))
     use_input = True
 
     for i in range(len(activity_trajectory)):
@@ -159,7 +159,7 @@ def main():
         len_trajec,
         type,  # activity trace, weight trace
         num_meta_params,
-        l1_eta,
+        l1_lmbda,
         sparsity,
         noise_scale,
         log_expdata,
@@ -203,10 +203,10 @@ def main():
 
     # same random initialization of the weights at the start for student and teacher network
     if type == "activity":
-        calc_loss_trajec = jit(Partial((calc_loss_activity_trajec), mask, l1_eta))
+        calc_loss_trajec = jit(Partial((calc_loss_activity_trajec), mask, l1_lmbda))
         generate_trajec = jit(generate_activity_trajec)
     else:
-        calc_loss_trajec = jit(Partial((calc_loss_weight_trajec), mask, l1_eta))
+        calc_loss_trajec = jit(Partial((calc_loss_weight_trajec), mask, l1_lmbda))
         generate_trajec = jit(generate_weight_trajec)
 
     optimizer = optax.adam(learning_rate=1e-3)
@@ -284,7 +284,7 @@ def main():
         df["avg_backprop_time"],
         df["device"],
         df["num_meta_params"],
-        df["l1_eta"],
+        df["l1_lmbda"],
     ) = (
         input_dim,
         output_dim,
@@ -300,7 +300,7 @@ def main():
         avg_backprop_time,
         device,
         num_meta_params,
-        l1_eta,
+        l1_lmbda,
     )
 
     print(df.head(5))

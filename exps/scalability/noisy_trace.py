@@ -188,7 +188,7 @@ def main():
         len_trajec,
         type,  # activity trace, weight trace
         num_meta_params,
-        l1_eta,
+        l1_lmbda,
         sparsity,
         noise_scale,
         log_expdata,
