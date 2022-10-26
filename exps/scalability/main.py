@@ -21,21 +21,6 @@ def generate_gaussian(key, shape, scale=0.1):
     return scale * jax.random.normal(key, shape)
 
 
-def generate_measurement_noise(key, layer_sizes, type, scale):
-    measurement_noise = []
-    if type == "activity":
-        for m in layer_sizes:
-            measurement_noise.append(scale * jax.random.normal(key, (m, 1)))
-            key, _ = jax.random.split(key)
-
-    elif type == "weight":
-        for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
-            measurement_noise.append(scale * jax.random.normal(key, (n, m)))
-            key, _ = jax.random.split(key)
-
-    return measurement_noise
-
-
 def generate_sparsity_mask(key, layer_sizes, type, sparsity):
     sparsity_mask = []
     if type == "activity":
@@ -108,8 +93,13 @@ def generate_weight_trajec_data(key, noise_scale, x_data, weights, A):
 
     for i in range(num_trajec):
         for j in range(len_trajec):
+            key, _ = jax.random.split(key)
             weights = update_weights(weights, x_data[i][j], A)
             weight_trajectory_data[i].append([w.copy() for w in weights])
+            for layer in range(len(weights)):
+                weight_trajectory_data[i][-1][layer] += noise_scale * jax.random.normal(
+                    key, weights[layer].shape
+                )
 
     return weight_trajectory_data
 
@@ -120,15 +110,17 @@ def generate_activity_trajec_data(key, noise_scale, x_data, weights, A):
 
     for i in range(num_trajec):
         for j in range(len_trajec):
+            key, _ = jax.random.split(key)
             weights = update_weights(weights, x_data[i][j], A)
             act = forward(weights, x_data[i][j])
+            for layer in range(len(act)):
+                act[layer] += noise_scale * jax.random.normal(key, act[layer].shape)
             activity_trajectory_data[i].append(act)
 
     return activity_trajectory_data
 
 
 def calc_loss_weight_trajec_(
-    measurement_noise,
     sparsity_mask,
     plasticity_mask,
     l1_lmbda,
@@ -144,12 +136,8 @@ def calc_loss_weight_trajec_(
         teacher_weights = weight_trajectory[i]
 
         for j in range(len(weights)):
-            loss_mat = optax.l2_loss(
-                weights[j], (teacher_weights[j] + measurement_noise[j])
-            )
-            assert (
-                sparsity_mask[j].shape == loss_mat.shape
-            ), "loss_mat and sparsity map shapes must match!"
+            loss_mat = optax.l2_loss(weights[j], teacher_weights[j])
+
             loss += jnp.mean(jnp.multiply(sparsity_mask[j], loss_mat))
     loss /= len(weight_trajectory)
     # add L1 regularization term to enforce sparseness
@@ -159,7 +147,6 @@ def calc_loss_weight_trajec_(
 
 
 def calc_loss_activity_trajec_(
-    measurement_noise,
     sparsity_mask,
     plasticity_mask,
     l1_lmbda,
@@ -177,10 +164,7 @@ def calc_loss_activity_trajec_(
         act = forward(weights, x[i])
         teacher_act = activity_trajectory[i]
         for j in range(len(act)):
-            assert (
-                teacher_act[j].shape == measurement_noise[j].shape
-            ), "noise and activation shape must match"
-            loss_mat = optax.l2_loss(act[j], (teacher_act[j] + measurement_noise[j]))
+            loss_mat = optax.l2_loss(act[j], teacher_act[j])
             loss_t.append(jnp.mean(jnp.multiply(sparsity_mask[j], loss_mat)))
 
         if not use_input:
@@ -273,7 +257,6 @@ def main():
     # A_student = jnp.zeros((27,))
 
     # sparsity of 0.9 retains ~90% of the trace
-    measurement_noise = generate_measurement_noise(key2, layer_sizes, type, noise_scale)
     sparsity_mask = generate_sparsity_mask(key, layer_sizes, type, sparsity)
     plasticity_mask = generate_plasticity_mask(plasticity_rule, num_meta_params)
 
@@ -285,7 +268,6 @@ def main():
         calc_loss_trajec = jit(
             Partial(
                 (calc_loss_weight_trajec_),
-                measurement_noise,
                 sparsity_mask,
                 plasticity_mask,
                 l1_lmbda,
@@ -296,7 +278,6 @@ def main():
         calc_loss_trajec = jit(
             Partial(
                 (calc_loss_activity_trajec_),
-                measurement_noise,
                 sparsity_mask,
                 plasticity_mask,
                 l1_lmbda,
@@ -323,8 +304,14 @@ def main():
     x_data = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.1)
     key, _ = jax.random.split(key)
     print("generating teacher trajectory")
-    teacher_trajectory_data = generate_trajec(key, noise_scale, x_data, teacher_weights, A_teacher)
-    print("start training...")
+    teacher_trajectory_data = generate_trajec(
+        key, noise_scale, x_data, teacher_weights, A_teacher
+    )
+    print(
+        "generated training data in %.2f s \nstarting training..."
+        % (time.time() - start_time)
+    )
+    start_time = time.time()
 
     for _ in range(meta_epochs + 1):
         expdata["loss"].append(0)
