@@ -112,15 +112,17 @@ def generate_weight_trajec(x, weights, A):
     return weight_trajectory
 
 
-def generate_activity_trajec(x, weights, A):
-    activity_trajectory = []
+def generate_activity_trajec_data(key, noise_scale, x_data, weights, A):
+    num_trajec, len_trajec = x_data.shape[0], x_data.shape[1]
+    teacher_trajectory_data = [[] for _ in range(num_trajec)]
 
-    for i in range(len(x)):
-        weights = update_weights(weights, x[i], A)
-        act = forward(weights, x[i])
-        activity_trajectory.append(act)
+    for i in range(num_trajec):
+        for j in range(len_trajec):
+            weights = update_weights(weights, x_data[i][j], A)
+            act = forward(weights, x_data[i][j])
+            teacher_trajectory_data[i].append(act)
 
-    return activity_trajectory
+    return teacher_trajectory_data
 
 
 def calc_loss_weight_trajec_(
@@ -265,8 +267,8 @@ def main():
 
     A_teacher = generate_A_teacher(plasticity_rule)
     key, key2 = jax.random.split(key)
-    # A_student = generate_gaussian(key2, (27,), scale=1e-3)
-    A_student = jnp.zeros((27,))
+    A_student = generate_gaussian(key2, (27,), scale=1e-3)
+    # A_student = jnp.zeros((27,))
 
     # sparsity of 0.9 retains ~90% of the trace
     measurement_noise = generate_measurement_noise(key2, layer_sizes, type, noise_scale)
@@ -298,7 +300,7 @@ def main():
                 l1_lmbda,
             )
         )
-        generate_trajec = jit(generate_activity_trajec)
+        generate_trajec = jit(generate_activity_trajec_data)
     else:
         raise Exception("only weight trace or activity trace allowed")
 
@@ -316,22 +318,23 @@ def main():
     )
 
     start_time = time.time()
+    key, _ = jax.random.split(key)
+    x_data = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.1)
+    teacher_trajectory_data = generate_trajec(key, noise_scale, x_data, teacher_weights, A_teacher)
 
-    for epoch in range(meta_epochs + 1):
-        key = jax.random.PRNGKey(0)
+    for _ in range(meta_epochs + 1):
         expdata["loss"].append(0)
         expdata["mean_grad_norm"].append(0)
         for idx in range(len(A_student)):
             pi, pj, pk = utils.A_index_to_powers(idx)
             expdata["A_{}{}{}".format(pi, pj, pk)].append(A_student[idx])
 
-        for _ in range(num_trajec):
-            key, _ = jax.random.split(key)
-            x = generate_gaussian(key, (len_trajec, input_dim), scale=0.1)
-            trajectory = generate_trajec(x, teacher_weights, A_teacher)
+        for j in range(num_trajec):
+            x = x_data[j]
+            teacher_trajectory = teacher_trajectory_data[j]
 
             loss_T, grads = jax.value_and_grad(calc_loss_trajec, argnums=2)(
-                student_weights, x, A_student, trajectory
+                student_weights, x, A_student, teacher_trajectory
             )
             # loss_T = calc_loss_trajec(student_weights, x, A_student, trajectory)
 
