@@ -102,27 +102,29 @@ def generate_A_teacher(plasticity_rule):
     return jnp.array(A_teacher)
 
 
-def generate_weight_trajec(x, weights, A):
-    weight_trajectory = []
+def generate_weight_trajec_data(key, noise_scale, x_data, weights, A):
+    num_trajec, len_trajec = x_data.shape[0], x_data.shape[1]
+    weight_trajectory_data = [[] for _ in range(num_trajec)]
 
-    for i in range(len(x)):
-        weights = update_weights(weights, x[i], A)
-        weight_trajectory.append([w.copy() for w in weights])
+    for i in range(num_trajec):
+        for j in range(len_trajec):
+            weights = update_weights(weights, x_data[i][j], A)
+            weight_trajectory_data[i].append([w.copy() for w in weights])
 
-    return weight_trajectory
+    return weight_trajectory_data
 
 
 def generate_activity_trajec_data(key, noise_scale, x_data, weights, A):
     num_trajec, len_trajec = x_data.shape[0], x_data.shape[1]
-    teacher_trajectory_data = [[] for _ in range(num_trajec)]
+    activity_trajectory_data = [[] for _ in range(num_trajec)]
 
     for i in range(num_trajec):
         for j in range(len_trajec):
             weights = update_weights(weights, x_data[i][j], A)
             act = forward(weights, x_data[i][j])
-            teacher_trajectory_data[i].append(act)
+            activity_trajectory_data[i].append(act)
 
-    return teacher_trajectory_data
+    return activity_trajectory_data
 
 
 def calc_loss_weight_trajec_(
@@ -289,7 +291,7 @@ def main():
                 l1_lmbda,
             )
         )
-        generate_trajec = jit(generate_weight_trajec)
+        generate_trajec = jit(generate_weight_trajec_data)
     elif type == "activity":
         calc_loss_trajec = jit(
             Partial(
@@ -318,9 +320,11 @@ def main():
     )
 
     start_time = time.time()
-    key, _ = jax.random.split(key)
     x_data = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.1)
+    key, _ = jax.random.split(key)
+    print("generating teacher trajectory")
     teacher_trajectory_data = generate_trajec(key, noise_scale, x_data, teacher_weights, A_teacher)
+    print("start training...")
 
     for _ in range(meta_epochs + 1):
         expdata["loss"].append(0)
