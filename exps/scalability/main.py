@@ -48,22 +48,12 @@ def generate_sparsity_mask(key, layer_sizes, type, sparsity):
     return sparsity_mask
 
 
-def generate_plasticity_mask(plasticity_rule, num_meta_params):
-    if plasticity_rule == "oja":
-        assert num_meta_params >= 2, "number of meta-parameters must atleast be 2"
-        plasticity_mask = np.zeros((27,))
-        idx_a0 = utils.powers_to_A_index(1, 1, 0)
-        idx_a1 = utils.powers_to_A_index(0, 2, 1)
-        idx = random.sample(
-            [i for i in range(27) if i not in [idx_a0, idx_a1]], num_meta_params - 2
-        )
-        idx.extend([idx_a0, idx_a1])
-        plasticity_mask[idx] = 1
-
-    else:
-        raise Exception(
-            "currently plasticity masking is only implemented for Oja's rule"
-        )
+def generate_plasticity_mask(upto_ith_order):
+    plasticity_mask = [0 for _ in range(27)]
+    for index in range(27):
+        pxyw = utils.A_index_to_powers(index)
+        if sum(pxyw) <= upto_ith_order and sum(pxyw) > 1:
+            plasticity_mask[index] = 1
 
     return jnp.array(plasticity_mask)
 
@@ -220,7 +210,7 @@ def main():
         num_trajec,
         len_trajec,
         type,  # activity trace, weight trace
-        num_meta_params,
+        upto_ith_order,
         l1_lmbda,
         sparsity,
         noise_scale,
@@ -258,7 +248,8 @@ def main():
 
     # sparsity of 0.9 retains ~90% of the trace
     sparsity_mask = generate_sparsity_mask(key, layer_sizes, type, sparsity)
-    plasticity_mask = generate_plasticity_mask(plasticity_rule, num_meta_params)
+    plasticity_mask = generate_plasticity_mask(upto_ith_order)
+    num_meta_params = sum(plasticity_mask)
 
     global forward, update_weights
     forward = jit(Partial(forward_, non_linear))
@@ -344,7 +335,7 @@ def main():
             math.sqrt(expdata["mean_grad_norm"][-1] / num_trajec), 6
         )
 
-        print("A student:", A_student)
+        # print("A student:", A_student)
         print(
             "sqrt avg. avg. loss (across num_trajectories, len_trajectory)",
             expdata["loss"][-1],
@@ -362,12 +353,13 @@ def main():
         df["output_dim"],
         df["hidden_layers"],
         df["hidden_neurons"],
-        df["non_linear"],
-        df["plasticity_rule"],
+        # df["non_linear"],
+        # df["plasticity_rule"],
         df["meta_epochs"],
         df["num_trajec"],
         df["len_trajec"],
         df["type"],
+        df["upto_ith_order"],
         df["num_meta_params"],
         df["l1_lmbda"],
         df["sparsity"],
@@ -380,12 +372,13 @@ def main():
         output_dim,
         hidden_layers,
         hidden_neurons,
-        non_linear,
-        plasticity_rule,
+        # non_linear,
+        # plasticity_rule,
         meta_epochs,
         num_trajec,
         len_trajec,
         type,
+        upto_ith_order,
         num_meta_params,
         l1_lmbda,
         sparsity,
