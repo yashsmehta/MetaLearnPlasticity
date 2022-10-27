@@ -12,6 +12,7 @@ import math
 import random
 from pathlib import Path
 import utils
+import sklearn.metrics
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
@@ -76,27 +77,27 @@ def generate_A_teacher(plasticity_rule):
 
     return jnp.array(A_teacher)
 
-
-def generate_weight_trajec_data(key, noise_scale, x_data, weights, A):
+@jit
+def generate_weight_trajec(key, noise_scale, x_data, weights, A):
     num_trajec, len_trajec = x_data.shape[0], x_data.shape[1]
-    weight_trajectory_data = [[] for _ in range(num_trajec)]
+    weight_trajec_data = [[] for _ in range(num_trajec)]
 
     for i in range(num_trajec):
         for j in range(len_trajec):
             key, _ = jax.random.split(key)
+            weight_trajec_data[i].append([w.copy() for w in weights])
             weights = update_weights(weights, x_data[i][j], A)
-            weight_trajectory_data[i].append([w.copy() for w in weights])
             for layer in range(len(weights)):
-                weight_trajectory_data[i][-1][layer] += noise_scale * jax.random.normal(
+                weight_trajec_data[i][-1][layer] += noise_scale * jax.random.normal(
                     key, weights[layer].shape
                 )
 
-    return weight_trajectory_data
+    return weight_trajec_data
 
-
-def generate_activity_trajec_data(key, noise_scale, x_data, weights, A):
+@jit
+def generate_activity_trajec(key, noise_scale, x_data, weights, A):
     num_trajec, len_trajec = x_data.shape[0], x_data.shape[1]
-    activity_trajectory_data = [[] for _ in range(num_trajec)]
+    activity_trajec_data = [[] for _ in range(num_trajec)]
 
     for i in range(num_trajec):
         for j in range(len_trajec):
@@ -105,9 +106,9 @@ def generate_activity_trajec_data(key, noise_scale, x_data, weights, A):
             act = forward(weights, x_data[i][j])
             for layer in range(len(act)):
                 act[layer] += noise_scale * jax.random.normal(key, act[layer].shape)
-            activity_trajectory_data[i].append(act)
+            activity_trajec_data[i].append(act)
 
-    return activity_trajectory_data
+    return activity_trajec_data
 
 
 def calc_loss_weight_trajec_(
@@ -197,6 +198,25 @@ def forward_(non_linear, weights, x):
             act.append(h)
     return act
 
+def calculate_r2_score(key, A_student, A_teacher, layer_sizes, x_data):
+
+    weights = []
+    num_test_trajec, len_test_trajec = x_data.shape[0], x_data.shape[1]
+
+    for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
+        weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
+
+    true_trajec_data_w = generate_weight_trajec(
+        jax.random.PRNGKey(0), 0.0, x_data, weights, A_teacher
+    )
+
+    pred_trajec_data_w = generate_weight_trajec(
+        jax.random.PRNGKey(0), 0.0, x_data, weights, A_student
+    )
+    y = [jnp.concatenate(true_trajec_data_w[i][j], axis=None) for i in range(num_test_trajec) for j in range(len_test_trajec)]
+    y_pred = [jnp.concatenate(pred_trajec_data_w[i][j], axis=None) for i in range(num_test_trajec) for j in range(len_test_trajec)]
+    r2_score = sklearn.metrics.r2_score(y, y_pred)
+    return r2_score
 
 def main():
     (
@@ -218,7 +238,6 @@ def main():
         output_file,
         jobid,
     ) = utils.parse_args()
-    np.random.seed(42)
     key = jax.random.PRNGKey(jobid)
 
     device = jax.lib.xla_bridge.get_backend().platform  # are we running on CPU or GPU?
@@ -243,8 +262,10 @@ def main():
 
     A_teacher = generate_A_teacher(plasticity_rule)
     key, key2 = jax.random.split(key)
-    A_student = generate_gaussian(key2, (27,), scale=1e-3)
-    # A_student = jnp.zeros((27,))
+    # A_student = generate_gaussian(key2, (27,), scale=1e-3)
+    A_student = jnp.zeros((27,))
+    A_student = A_student.at[4].set(1)
+    A_student = A_student.at[15].set(-1)
 
     # sparsity of 0.9 retains ~90% of the trace
     sparsity_mask = generate_sparsity_mask(key, layer_sizes, type, sparsity)
@@ -264,7 +285,7 @@ def main():
                 l1_lmbda,
             )
         )
-        generate_trajec = jit(generate_weight_trajec_data)
+        generate_trajec = generate_weight_trajec
     elif type == "activity":
         calc_loss_trajec = jit(
             Partial(
@@ -274,7 +295,7 @@ def main():
                 l1_lmbda,
             )
         )
-        generate_trajec = jit(generate_activity_trajec_data)
+        generate_trajec = generate_activity_trajec
     else:
         raise Exception("only weight trace or activity trace allowed")
 
@@ -295,9 +316,10 @@ def main():
     x_data = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.1)
     key, _ = jax.random.split(key)
     print("generating teacher trajectory")
-    teacher_trajectory_data = generate_trajec(
+    teacher_trajec_data = generate_trajec(
         key, noise_scale, x_data, teacher_weights, A_teacher
     )
+
     print(
         "generated training data in %.2f s \nstarting training..."
         % (time.time() - start_time)
@@ -313,10 +335,10 @@ def main():
 
         for j in range(num_trajec):
             x = x_data[j]
-            teacher_trajectory = teacher_trajectory_data[j]
+            teacher_trajec = teacher_trajec_data[j]
 
             loss_T, grads = jax.value_and_grad(calc_loss_trajec, argnums=2)(
-                student_weights, x, A_student, teacher_trajectory
+                student_weights, x, A_student, teacher_trajec
             )
             # loss_T = calc_loss_trajec(student_weights, x, A_student, trajectory)
 
@@ -347,6 +369,13 @@ def main():
     )
     df = pd.DataFrame(expdata)
     pd.set_option("display.max_columns", None)
+
+    key, key2 = jax.random.split(key)
+    x_data = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.1)
+    r2_score = calculate_r2_score(key2, A_student, A_teacher, layer_sizes, x_data)
+    print("r2_score: ", r2_score)
+    exit()
+
 
     (
         df["input_dim"],
