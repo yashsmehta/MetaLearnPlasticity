@@ -3,6 +3,7 @@ playground/out/*
 plastix/*
 playground/grave/*
 **.out
+.ipynb_checkpoints/*
 **.ipynb
 **.pyc
 **explogs/
