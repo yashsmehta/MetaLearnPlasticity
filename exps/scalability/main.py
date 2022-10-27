@@ -77,12 +77,15 @@ def generate_A_teacher(plasticity_rule):
 
     return jnp.array(A_teacher)
 
+
 @jit
 def generate_weight_trajec(key, noise_scale, x_data, weights, A):
     num_trajec, len_trajec = x_data.shape[0], x_data.shape[1]
     weight_trajec_data = [[] for _ in range(num_trajec)]
+    w_init = [w.copy() for w in weights]
 
     for i in range(num_trajec):
+        weights = [w.copy() for w in w_init]
         for j in range(len_trajec):
             key, _ = jax.random.split(key)
             weight_trajec_data[i].append([w.copy() for w in weights])
@@ -94,23 +97,27 @@ def generate_weight_trajec(key, noise_scale, x_data, weights, A):
 
     return weight_trajec_data
 
+
 @jit
 def generate_activity_trajec(key, noise_scale, x_data, weights, A):
     num_trajec, len_trajec = x_data.shape[0], x_data.shape[1]
     activity_trajec_data = [[] for _ in range(num_trajec)]
+    w_init = [w.copy() for w in weights]
 
     for i in range(num_trajec):
+        weights = [w.copy() for w in w_init]
         for j in range(len_trajec):
             key, _ = jax.random.split(key)
-            weights = update_weights(weights, x_data[i][j], A)
             act = forward(weights, x_data[i][j])
             for layer in range(len(act)):
                 act[layer] += noise_scale * jax.random.normal(key, act[layer].shape)
             activity_trajec_data[i].append(act)
+            weights = update_weights(weights, x_data[i][j], A)
 
     return activity_trajec_data
 
 
+@jit
 def calc_loss_weight_trajec_(
     sparsity_mask,
     plasticity_mask,
@@ -123,13 +130,12 @@ def calc_loss_weight_trajec_(
     loss = 0
 
     for i in range(len(weight_trajectory)):
-        weights = update_weights(weights, x[i], A)
         teacher_weights = weight_trajectory[i]
 
         for j in range(len(weights)):
             loss_mat = optax.l2_loss(weights[j], teacher_weights[j])
-
             loss += jnp.mean(jnp.multiply(sparsity_mask[j], loss_mat))
+        weights = update_weights(weights, x[i], A)
     loss /= len(weight_trajectory)
     # add L1 regularization term to enforce sparseness
     loss += l1_lmbda * jnp.sum(jnp.absolute(A * plasticity_mask))
@@ -137,6 +143,7 @@ def calc_loss_weight_trajec_(
     return loss
 
 
+@jit
 def calc_loss_activity_trajec_(
     sparsity_mask,
     plasticity_mask,
@@ -151,16 +158,16 @@ def calc_loss_activity_trajec_(
 
     for i in range(len(activity_trajectory)):
         loss_t = []
-        weights = update_weights(weights, x[i], A)
         act = forward(weights, x[i])
         teacher_act = activity_trajectory[i]
         for j in range(len(act)):
             loss_mat = optax.l2_loss(act[j], teacher_act[j])
             loss_t.append(jnp.mean(jnp.multiply(sparsity_mask[j], loss_mat)))
-
         if not use_input:
             loss_t.pop(0)
         loss += sum(loss_t)
+        weights = update_weights(weights, x[i], A)
+
     loss /= len(activity_trajectory)
     # add L1 regularization term to enforce sparseness
     loss += l1_lmbda * jnp.sum(jnp.absolute(A * plasticity_mask))
@@ -198,6 +205,7 @@ def forward_(non_linear, weights, x):
             act.append(h)
     return act
 
+
 def calculate_r2_score(key, A_student, A_teacher, layer_sizes, x_data):
 
     weights = []
@@ -213,10 +221,19 @@ def calculate_r2_score(key, A_student, A_teacher, layer_sizes, x_data):
     pred_trajec_data_w = generate_weight_trajec(
         jax.random.PRNGKey(0), 0.0, x_data, weights, A_student
     )
-    y = [jnp.concatenate(true_trajec_data_w[i][j], axis=None) for i in range(num_test_trajec) for j in range(len_test_trajec)]
-    y_pred = [jnp.concatenate(pred_trajec_data_w[i][j], axis=None) for i in range(num_test_trajec) for j in range(len_test_trajec)]
+    y = [
+        jnp.concatenate(true_trajec_data_w[i][j], axis=None)
+        for i in range(num_test_trajec)
+        for j in range(len_test_trajec)
+    ]
+    y_pred = [
+        jnp.concatenate(pred_trajec_data_w[i][j], axis=None)
+        for i in range(num_test_trajec)
+        for j in range(len_test_trajec)
+    ]
     r2_score = sklearn.metrics.r2_score(y, y_pred)
     return r2_score
+
 
 def main():
     (
@@ -277,23 +294,13 @@ def main():
     update_weights = jit(Partial((update_weights_), plasticity_mask))
 
     if type == "weight":
-        calc_loss_trajec = jit(
-            Partial(
-                (calc_loss_weight_trajec_),
-                sparsity_mask,
-                plasticity_mask,
-                l1_lmbda,
-            )
+        calc_loss_trajec = Partial(
+            (calc_loss_weight_trajec_), sparsity_mask, plasticity_mask, l1_lmbda
         )
         generate_trajec = generate_weight_trajec
     elif type == "activity":
-        calc_loss_trajec = jit(
-            Partial(
-                (calc_loss_activity_trajec_),
-                sparsity_mask,
-                plasticity_mask,
-                l1_lmbda,
-            )
+        calc_loss_trajec = Partial(
+            (calc_loss_activity_trajec_), sparsity_mask, plasticity_mask, l1_lmbda
         )
         generate_trajec = generate_activity_trajec
     else:
@@ -340,7 +347,7 @@ def main():
             loss_T, grads = jax.value_and_grad(calc_loss_trajec, argnums=2)(
                 student_weights, x, A_student, teacher_trajec
             )
-            # loss_T = calc_loss_trajec(student_weights, x, A_student, trajectory)
+            # loss_T = calc_loss_trajec(student_weights, x, A_student, teacher_trajec)
 
             expdata["mean_grad_norm"][-1] += jnp.linalg.norm(grads)
             expdata["loss"][-1] += loss_T
@@ -359,7 +366,7 @@ def main():
 
         # print("A student:", A_student)
         print(
-            "sqrt avg. avg. loss (across num_trajectories, len_trajectory)",
+            "sqrt avg.loss (across num_trajectories, len_trajectory)",
             expdata["loss"][-1],
         )
         print()
@@ -374,8 +381,6 @@ def main():
     x_data = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.1)
     r2_score = calculate_r2_score(key2, A_student, A_teacher, layer_sizes, x_data)
     print("r2_score: ", r2_score)
-    exit()
-
 
     (
         df["input_dim"],
