@@ -1,18 +1,21 @@
 # !/bin/bash
 
-for input_dim in 100 500
+for input_dim in 500
 do
-    for output_dim in 10 50 
+    for output_dim in 50
     do
-        for sparsity in 1 0.9 0.8 0.7 0.6 0.5 0.4 0.3 0.2 0.1 0.05 0.01
+        for upto_ith_order in 3
         do
-            for num_meta_params in 10
+            for noise_scale in 0
             do
-                for len_trajec in 50
+                for sparsity in 1 0.6 0.36 0.22 0.13 0.08 0.05 0.03 0.02 0.01
                 do
-                    bsub -n 12 -o cluster_logs.out -gpu "num=1" -J "sparsity" -q gpu_rtx "python exps/scalability/main.py \
-                    -input_dim $input_dim -output_dim $output_dim -num_meta_params $num_meta_params -sparsity $sparsity\
-                    -len_trajec $len_trajec -log_expdata True -num_trajec 250 -meta_epochs 250 -output_file sparsity_exps"
+                    for jobid in 0 1 2 3 4
+                    do
+                        bsub -n 5 -o cluster_logs.out -gpu "num=1" -J "sparsity" -q gpu_rtx "python exps/scalability/main.py \
+                        -input_dim $input_dim -output_dim $output_dim -upto_ith_order $upto_ith_order -sparsity $sparsity\
+                        -jobid $jobid -noise_scale $noise_scale -len_trajec 50 -log_expdata True -num_trajec 250 -meta_epochs 250 -output_file sparsity_exps"
+                    done
                 done
             done
         done
