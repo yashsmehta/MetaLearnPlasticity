@@ -1,7 +1,6 @@
 data/*
-playground/out/*
 plastix/*
-playground/grave/*
+playground/*
 **.out
 .ipynb_checkpoints/*
 **.ipynb
