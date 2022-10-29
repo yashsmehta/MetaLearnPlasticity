@@ -5,6 +5,6 @@ playground/*
 .ipynb_checkpoints/*
 **.ipynb
 **.pyc
-**explogs/
+explogs/*
 .vscode/*
 __pycache__/
