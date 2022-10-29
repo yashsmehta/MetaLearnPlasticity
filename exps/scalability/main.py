@@ -2,17 +2,18 @@ import os
 import jax
 import jax.numpy as jnp
 from jax.tree_util import Partial
-from jax import jit
+from jax import jit, vmap
 import optax
 import time
 import pandas as pd
 import numpy as np
 import time
 import math
-import random
 from pathlib import Path
 import utils
 import sklearn.metrics
+import psutil
+import resource
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
@@ -78,7 +79,7 @@ def generate_A_teacher(plasticity_rule):
     return jnp.array(A_teacher)
 
 
-@jit
+# IMP: don't jit unrolling computation graph. Can try w lax.scan and then jit
 def generate_weight_trajec(key, noise_scale, x_data, weights, A):
     num_trajec, len_trajec = x_data.shape[0], x_data.shape[1]
     weight_trajec_data = [[] for _ in range(num_trajec)]
@@ -98,7 +99,6 @@ def generate_weight_trajec(key, noise_scale, x_data, weights, A):
     return weight_trajec_data
 
 
-@jit
 def generate_activity_trajec(key, noise_scale, x_data, weights, A):
     num_trajec, len_trajec = x_data.shape[0], x_data.shape[1]
     activity_trajec_data = [[] for _ in range(num_trajec)]
@@ -117,7 +117,6 @@ def generate_activity_trajec(key, noise_scale, x_data, weights, A):
     return activity_trajec_data
 
 
-@jit
 def calc_loss_weight_trajec_(
     sparsity_mask,
     plasticity_mask,
@@ -143,7 +142,6 @@ def calc_loss_weight_trajec_(
     return loss
 
 
-@jit
 def calc_loss_activity_trajec_(
     sparsity_mask,
     plasticity_mask,
@@ -176,6 +174,7 @@ def calc_loss_activity_trajec_(
 
 
 def update_weights_(plasticity_mask, weights, x, A):
+    # note: check if this can be simplified with jax.tree_map()
     act = forward(weights, x)
     A = A * plasticity_mask
     for layer in range(len(weights)):
@@ -279,10 +278,10 @@ def main():
 
     A_teacher = generate_A_teacher(plasticity_rule)
     key, key2 = jax.random.split(key)
-    # A_student = generate_gaussian(key2, (27,), scale=1e-3)
-    A_student = jnp.zeros((27,))
-    A_student = A_student.at[4].set(1)
-    A_student = A_student.at[15].set(-1)
+    A_student = generate_gaussian(key2, (27,), scale=1e-3)
+    # A_student = jnp.zeros((27,))
+    # A_student = A_student.at[4].set(1)
+    # A_student = A_student.at[15].set(-1)
 
     # sparsity of 0.9 retains ~90% of the trace
     sparsity_mask = generate_sparsity_mask(key, layer_sizes, type, sparsity)
@@ -319,14 +318,18 @@ def main():
         {"loss": [], "mean_grad_norm": [], "epoch": jnp.arange(meta_epochs + 1)}
     )
 
-    start_time = time.time()
     x_data = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.1)
+    # generate same trajectory on repeat
+    # x_data = jnp.repeat(x_data, num_trajec, axis=0).reshape((num_trajec, len_trajec, input_dim), order='F')
+
     key, _ = jax.random.split(key)
-    print("generating teacher trajectory")
-    teacher_trajec_data = generate_trajec(
+    start_time = time.time()
+    print("generating trajec w nested for loop")
+    teacher_trajec_data = generate_activity_trajec(
         key, noise_scale, x_data, teacher_weights, A_teacher
     )
 
+    process = psutil.Process(os.getpid())
     print(
         "generated training data in %.2f s \nstarting training..."
         % (time.time() - start_time)
@@ -371,6 +374,7 @@ def main():
         )
         print()
 
+    print("Mem usage: ", round(process.memory_info().rss / 10**6), "MB")
     avg_backprop_time = round(
         (time.time() - start_time) / (meta_epochs * num_trajec), 3
     )
@@ -399,6 +403,7 @@ def main():
         df["sparsity"],
         df["noise_scale"],
         df["avg_backprop_time"],
+        df["r2_score"],
         df["device"],
         df["jobid"],
     ) = (
@@ -418,6 +423,7 @@ def main():
         sparsity,
         noise_scale,
         avg_backprop_time,
+        r2_score,
         device,
         jobid,
     )
@@ -436,3 +442,27 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+###################################################################
+#################         Code Blocks          ####################
+###################################################################
+
+# def vec_generate_activity_trajec(key, noise_scale, x, weights, A):
+#     len_trajec = x.shape[0]
+#     activity_trajec_data = []
+
+#     for j in range(len_trajec):
+#         key, _ = jax.random.split(key)
+#         act = forward(weights, x[j])
+#         for layer in range(len(act)):
+#             act[layer] += noise_scale * jax.random.normal(key, act[layer].shape)
+#         activity_trajec_data.append(act)
+#         weights = update_weights(weights, x[j], A)
+
+#     return activity_trajec_data
+
+# teacher_trajec_data = vmap(vec_generate_activity_trajec, in_axes=(None, None, 0, None, None), out_axes=0)(
+#     key, noise_scale, x_data, teacher_weights, A_teacher
+# )
+
+# print("max usage", resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
