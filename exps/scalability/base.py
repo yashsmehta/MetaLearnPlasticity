@@ -164,7 +164,7 @@ def main():
         log_expdata,
         output_file,
         jobid,
-    ) = utils.parse_args()
+    ) = utils.parse_args_old()
 
     key = jax.random.PRNGKey(jobid)
 
@@ -193,8 +193,8 @@ def main():
     mask = generate_mask(plasticity_rule, num_meta_params)
 
     key, key2 = jax.random.split(key)
-    # A_student = generate_gaussian(key2, (27,), scale=1e-3)
-    A_student = jnp.zeros((27,))
+    A_student = generate_gaussian(key2, (27,), scale=1e-3)
+    # A_student = jnp.zeros((27,))
 
     global forward, update_weights
     forward = jax.jit(Partial(forward_, non_linear))

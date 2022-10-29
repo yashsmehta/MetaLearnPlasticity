@@ -166,7 +166,7 @@ def main():
         log_expdata,
         output_file,
         jobid,
-    ) = utils.parse_args()
+    ) = utils.parse_args_old()
 
     key = jax.random.PRNGKey(jobid)
 

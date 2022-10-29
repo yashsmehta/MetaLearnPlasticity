@@ -194,7 +194,7 @@ def main():
         log_expdata,
         output_file,
         jobid,
-    ) = utils.parse_args()
+    ) = utils.parse_args_old()
     np.random.seed(42)
     key = jax.random.PRNGKey(jobid)
 
