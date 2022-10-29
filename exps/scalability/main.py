@@ -315,7 +315,12 @@ def main():
         for k in range(3)
     }
     expdata.update(
-        {"loss": [], "mean_grad_norm": [], "epoch": jnp.arange(meta_epochs + 1)}
+        {
+            "loss": [],
+            "mean_grad_norm": [],
+            "backprop_time": [],
+            "epoch": jnp.arange(meta_epochs + 1),
+        }
     )
 
     x_data = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.1)
@@ -334,9 +339,9 @@ def main():
         "generated training data in %.2f s \nstarting training..."
         % (time.time() - start_time)
     )
-    start_time = time.time()
 
     for _ in range(meta_epochs + 1):
+        start_time = time.time()
         expdata["loss"].append(0)
         expdata["mean_grad_norm"].append(0)
         for idx in range(len(A_student)):
@@ -366,8 +371,10 @@ def main():
         expdata["mean_grad_norm"][-1] = round(
             math.sqrt(expdata["mean_grad_norm"][-1] / num_trajec), 6
         )
+        expdata["backprop_time"].append(
+            round((time.time() - start_time) / num_trajec, 3)
+        )
 
-        # print("A student:", A_student)
         print(
             "sqrt avg.loss (across num_trajectories, len_trajectory)",
             expdata["loss"][-1],
@@ -375,9 +382,6 @@ def main():
         print()
 
     print("Mem usage: ", round(process.memory_info().rss / 10**6), "MB")
-    avg_backprop_time = round(
-        (time.time() - start_time) / (meta_epochs * num_trajec), 3
-    )
     df = pd.DataFrame(expdata)
     pd.set_option("display.max_columns", None)
 
@@ -402,7 +406,6 @@ def main():
         df["l1_lmbda"],
         df["sparsity"],
         df["noise_scale"],
-        df["avg_backprop_time"],
         df["r2_score"],
         df["device"],
         df["jobid"],
@@ -422,7 +425,6 @@ def main():
         l1_lmbda,
         sparsity,
         noise_scale,
-        avg_backprop_time,
         r2_score,
         device,
         jobid,
