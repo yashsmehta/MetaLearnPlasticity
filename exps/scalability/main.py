@@ -319,7 +319,8 @@ def main():
             "loss": [],
             "mean_grad_norm": [],
             "backprop_time": [],
-            "epoch": jnp.arange(meta_epochs + 1),
+            "r2_score": [],
+            "epoch": jnp.arange(meta_epochs) + 1,
         }
     )
 
@@ -340,7 +341,7 @@ def main():
         % (time.time() - start_time)
     )
 
-    for _ in range(meta_epochs + 1):
+    for _ in range(meta_epochs):
         start_time = time.time()
         expdata["loss"].append(0)
         expdata["mean_grad_norm"].append(0)
@@ -374,6 +375,12 @@ def main():
         expdata["backprop_time"].append(
             round((time.time() - start_time) / num_trajec, 3)
         )
+        key, key2 = jax.random.split(key)
+        test_data = generate_gaussian(key, (25, len_trajec, input_dim), scale=0.1)
+        expdata["r2_score"].append(
+            calculate_r2_score(key2, A_student, A_teacher, layer_sizes, test_data)
+        )
+        print("r2_score: ", expdata["r2_score"][-1])
 
         print(
             "sqrt avg.loss (across num_trajectories, len_trajectory)",
@@ -384,11 +391,6 @@ def main():
     print("Mem usage: ", round(process.memory_info().rss / 10**6), "MB")
     df = pd.DataFrame(expdata)
     pd.set_option("display.max_columns", None)
-
-    key, key2 = jax.random.split(key)
-    x_data = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.1)
-    r2_score = calculate_r2_score(key2, A_student, A_teacher, layer_sizes, x_data)
-    print("r2_score: ", r2_score)
 
     (
         df["input_dim"],
@@ -406,7 +408,6 @@ def main():
         df["l1_lmbda"],
         df["sparsity"],
         df["noise_scale"],
-        df["r2_score"],
         df["device"],
         df["jobid"],
     ) = (
@@ -425,7 +426,6 @@ def main():
         l1_lmbda,
         sparsity,
         noise_scale,
-        r2_score,
         device,
         jobid,
     )
