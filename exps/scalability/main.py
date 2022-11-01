@@ -205,30 +205,30 @@ def forward_(non_linear, weights, x):
     return act
 
 
-def calculate_r2_score(key, A_student, A_teacher, layer_sizes, x_data):
+def calculate_r2_score(key, A_student, A_teacher, layer_sizes, test_x):
 
     weights = []
-    num_test_trajec, len_test_trajec = x_data.shape[0], x_data.shape[1]
+    num_trajec, len_trajec = test_x.shape[0], test_x.shape[1]
 
     for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
         weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
 
     true_trajec_data_w = generate_weight_trajec(
-        jax.random.PRNGKey(0), 0.0, x_data, weights, A_teacher
+        jax.random.PRNGKey(0), 0.0, test_x, weights, A_teacher
     )
 
     pred_trajec_data_w = generate_weight_trajec(
-        jax.random.PRNGKey(0), 0.0, x_data, weights, A_student
+        jax.random.PRNGKey(0), 0.0, test_x, weights, A_student
     )
     y = [
         jnp.concatenate(true_trajec_data_w[i][j], axis=None)
-        for i in range(num_test_trajec)
-        for j in range(len_test_trajec)
+        for i in range(num_trajec)
+        for j in range(len_trajec)
     ]
     y_pred = [
         jnp.concatenate(pred_trajec_data_w[i][j], axis=None)
-        for i in range(num_test_trajec)
-        for j in range(len_test_trajec)
+        for i in range(num_trajec)
+        for j in range(len_trajec)
     ]
     r2_score = sklearn.metrics.r2_score(y, y_pred)
     return r2_score
@@ -278,7 +278,7 @@ def main():
 
     A_teacher = generate_A_teacher(plasticity_rule)
     key, key2 = jax.random.split(key)
-    A_student = generate_gaussian(key2, (27,), scale=1e-3)
+    A_student = generate_gaussian(key2, (27,), scale=1e-5)
     # A_student = jnp.zeros((27,))
     # A_student = A_student.at[4].set(1)
     # A_student = A_student.at[15].set(-1)
@@ -324,7 +324,7 @@ def main():
         }
     )
 
-    x_data = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.1)
+    x_data = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.01)
     # generate same trajectory on repeat
     # x_data = jnp.repeat(x_data, num_trajec, axis=0).reshape((num_trajec, len_trajec, input_dim), order='F')
 
@@ -376,9 +376,10 @@ def main():
             round((time.time() - start_time) / num_trajec, 3)
         )
         key, key2 = jax.random.split(key)
-        test_data = generate_gaussian(key, (25, len_trajec, input_dim), scale=0.1)
+        test_x = generate_gaussian(key, (25, 10, input_dim), scale=0.01)
+        # test_x = generate_gaussian(key, (25, len_trajec, input_dim), scale=0.1)
         expdata["r2_score"].append(
-            calculate_r2_score(key2, A_student, A_teacher, layer_sizes, test_data)
+            calculate_r2_score(key2, plasticity_mask * A_student, A_teacher, layer_sizes, test_x)
         )
         print("r2_score: ", expdata["r2_score"][-1])
 
@@ -430,7 +431,7 @@ def main():
         jobid,
     )
 
-    print(df.head(5))
+    print(df.tail(5))
 
     if log_expdata:
         use_header = False
