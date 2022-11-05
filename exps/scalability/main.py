@@ -12,6 +12,8 @@ import math
 from pathlib import Path
 import utils
 import sklearn.metrics
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
 import psutil
 import resource
 
@@ -234,6 +236,43 @@ def calculate_r2_score(key, A_student, A_teacher, layer_sizes, test_x):
     return r2_score
 
 
+def plot_PCA_trajec(key, A_student, A_teacher, layer_sizes, test_x):
+
+    weights = []
+    num_trajec, len_trajec = test_x.shape[0], test_x.shape[1]
+    assert num_trajec == 1, "only single trajectory can be plotted"
+
+    for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
+        weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
+
+    true_trajec_data_w = generate_weight_trajec(
+        jax.random.PRNGKey(0), 0.0, test_x, weights, A_teacher
+    )
+
+    pred_trajec_data_w = generate_weight_trajec(
+        jax.random.PRNGKey(0), 0.0, test_x, weights, A_student
+    )
+    y_teacher = [
+        jnp.concatenate(true_trajec_data_w[i][j], axis=None)
+        for i in range(num_trajec)
+        for j in range(len_trajec)
+    ]
+    y_student = [
+        jnp.concatenate(pred_trajec_data_w[i][j], axis=None)
+        for i in range(num_trajec)
+        for j in range(len_trajec)
+    ]
+    y_teacher.extend(y_student)
+    pca = PCA(n_components=3)
+    combine_3d = pca.fit_transform(y_teacher)
+    teacher_3d, student_3d = np.split(combine_3d, 2)
+    ax = plt.axes(projection='3d')
+    ax.plot3D(student_3d[:,0], student_3d[:,1], student_3d[:,2], 'orange')
+    ax.plot3D(teacher_3d[:,0], teacher_3d[:,1], teacher_3d[:,2], 'green')
+    plt.savefig('PCA_trajec.png', dpi=400)
+
+    return 
+
 def main():
     (
         input_dim,
@@ -330,6 +369,7 @@ def main():
     # x_data = jnp.repeat(x_data, num_trajec, axis=0).reshape((num_trajec, len_trajec, input_dim), order='F')
 
     key, _ = jax.random.split(key)
+
     start_time = time.time()
     print("generating trajec w nested for loop")
     teacher_trajec_data = generate_activity_trajec(
@@ -389,6 +429,11 @@ def main():
             expdata["loss"][-1],
         )
         print()
+
+    key, key2 = jax.random.split(key)
+    test_x = generate_gaussian(key, (1, 10, input_dim), scale=0.1)
+    plot_PCA_trajec(key2, A_student, A_teacher, layer_sizes, test_x)
+    print("created fig")
 
     print("Mem usage: ", round(process.memory_info().rss / 10**6), "MB")
     df = pd.DataFrame(expdata)
