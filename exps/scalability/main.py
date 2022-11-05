@@ -152,7 +152,7 @@ def calc_loss_activity_trajec_(
     activity_trajectory,
 ):
     loss = 0
-    use_input = True
+    use_input = False
 
     for i in range(len(activity_trajectory)):
         loss_t = []
@@ -270,23 +270,24 @@ def main():
     print("network architecture: ", layer_sizes)
     print("platform: ", device)
     teacher_weights, student_weights = [], []
+    key, key2 = jax.random.split(key)
 
-    # same random initialization of the weights at the start for student and teacher network
     for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
         teacher_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
-        student_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
-
-    A_teacher = generate_A_teacher(plasticity_rule)
-    key, key2 = jax.random.split(key)
-    A_student = generate_gaussian(key2, (27,), scale=1e-5)
-    # A_student = jnp.zeros((27,))
-    # A_student = A_student.at[4].set(1)
-    # A_student = A_student.at[15].set(-1)
+        student_weights.append(generate_gaussian(key2, (n, m), scale=1 / (m + n)))
 
     # sparsity of 0.9 retains ~90% of the trace
     sparsity_mask = generate_sparsity_mask(key, layer_sizes, type, sparsity)
     plasticity_mask = generate_plasticity_mask(upto_ith_order)
     num_meta_params = sum(plasticity_mask)
+
+    A_teacher = generate_A_teacher(plasticity_rule)
+    key, key2 = jax.random.split(key)
+    # A_student = jnp.zeros((27,))
+    # A_student = A_student.at[4].set(1)
+    # A_student = A_student.at[15].set(-1)
+    A_student = generate_gaussian(key2, (27,), scale=1e-5)
+    A_student = plasticity_mask * A_student
 
     global forward, update_weights
     forward = jit(Partial(forward_, non_linear))
@@ -320,7 +321,7 @@ def main():
             "mean_grad_norm": [],
             "backprop_time": [],
             "r2_score": [],
-            "epoch": jnp.arange(meta_epochs) + 1,
+            "epoch": jnp.arange(meta_epochs),
         }
     )
 
@@ -376,10 +377,10 @@ def main():
             round((time.time() - start_time) / num_trajec, 3)
         )
         key, key2 = jax.random.split(key)
-        test_x = generate_gaussian(key, (25, 10, input_dim), scale=0.01)
+        test_x = generate_gaussian(key, (25, 10, input_dim), scale=0.1)
         # test_x = generate_gaussian(key, (25, len_trajec, input_dim), scale=0.1)
         expdata["r2_score"].append(
-            calculate_r2_score(key2, plasticity_mask * A_student, A_teacher, layer_sizes, test_x)
+            calculate_r2_score(key2, A_student, A_teacher, layer_sizes, test_x)
         )
         print("r2_score: ", expdata["r2_score"][-1])
 
