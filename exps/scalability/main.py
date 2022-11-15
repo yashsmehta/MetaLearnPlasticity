@@ -24,10 +24,12 @@ def generate_gaussian(key, shape, scale=0.1):
     assert type(shape) is tuple, "shape passed must be a tuple"
     return scale * jax.random.normal(key, shape)
 
+
 def sparsify_x(x_data_a, x_data_b, sparsity_mask):
     x_mask = sparsity_mask[0].reshape(x_data_a.shape)
     x_mask_inv = jnp.array(jnp.logical_not(x_mask), dtype=int)
     return x_mask * x_data_a + x_mask_inv * x_data_b
+
 
 def generate_sparsity_mask(key, layer_sizes, type, sparsity):
     sparsity_mask = []
@@ -178,6 +180,7 @@ def calc_loss_activity_trajec_(
 
     return loss
 
+
 # inefficient implementation: check out why!
 def update_weights_(plasticity_mask, weights, x, A):
     # note: check if this can be simplified with jax.tree_map()
@@ -211,7 +214,7 @@ def forward_(non_linear, weights, x):
     return act
 
 
-def calculate_r2_score(key, A_student, A_teacher, layer_sizes, test_x):
+def get_flattened_trajecs(key, A_student, A_teacher, layer_sizes, test_x):
 
     weights = []
     num_trajec, len_trajec = test_x.shape[0], test_x.shape[1]
@@ -226,56 +229,32 @@ def calculate_r2_score(key, A_student, A_teacher, layer_sizes, test_x):
     pred_trajec_data_w = generate_weight_trajec(
         jax.random.PRNGKey(0), 0.0, test_x, weights, A_student
     )
-    y = [
+    w_trajec_true = [
         jnp.concatenate(true_trajec_data_w[i][j], axis=None)
         for i in range(num_trajec)
         for j in range(len_trajec)
     ]
-    y_pred = [
+    w_trajec_pred = [
         jnp.concatenate(pred_trajec_data_w[i][j], axis=None)
         for i in range(num_trajec)
         for j in range(len_trajec)
     ]
-    r2_score = sklearn.metrics.r2_score(y, y_pred)
-    return r2_score
+    return w_trajec_true, w_trajec_pred
 
 
-def plot_PCA_trajec(key, A_student, A_teacher, layer_sizes, test_x):
+def plot_PCA_trajec(w_trajec_true, w_trajec_pred):
 
-    weights = []
-    num_trajec, len_trajec = test_x.shape[0], test_x.shape[1]
-    assert num_trajec == 1, "only single trajectory can be plotted"
-
-    for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
-        weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
-
-    true_trajec_data_w = generate_weight_trajec(
-        jax.random.PRNGKey(0), 0.0, test_x, weights, A_teacher
-    )
-
-    pred_trajec_data_w = generate_weight_trajec(
-        jax.random.PRNGKey(0), 0.0, test_x, weights, A_student
-    )
-    y_teacher = [
-        jnp.concatenate(true_trajec_data_w[i][j], axis=None)
-        for i in range(num_trajec)
-        for j in range(len_trajec)
-    ]
-    y_student = [
-        jnp.concatenate(pred_trajec_data_w[i][j], axis=None)
-        for i in range(num_trajec)
-        for j in range(len_trajec)
-    ]
-    y_teacher.extend(y_student)
+    w_trajec_true.extend(w_trajec_pred)
     pca = PCA(n_components=3)
-    combine_3d = pca.fit_transform(y_teacher)
+    combine_3d = pca.fit_transform(w_trajec_true)
     teacher_3d, student_3d = np.split(combine_3d, 2)
-    ax = plt.axes(projection='3d')
-    ax.plot3D(student_3d[:,0], student_3d[:,1], student_3d[:,2], 'orange')
-    ax.plot3D(teacher_3d[:,0], teacher_3d[:,1], teacher_3d[:,2], 'green')
-    plt.savefig('PCA_trajec.png', dpi=400)
+    ax = plt.axes(projection="3d")
+    ax.plot3D(student_3d[:, 0], student_3d[:, 1], student_3d[:, 2], "orange")
+    ax.plot3D(teacher_3d[:, 0], teacher_3d[:, 1], teacher_3d[:, 2], "green")
+    plt.savefig("PCA_trajec.png", dpi=400)
 
-    return 
+    return
+
 
 def main():
     (
@@ -386,8 +365,8 @@ def main():
     )
 
     x_data_b = generate_gaussian(key2, (num_trajec, len_trajec, input_dim), scale=0.01)
-    vsparsify_x = vmap(sparsify_x, in_axes=(0,0, None), out_axes=0)
-    vvsparsify_x = vmap(vsparsify_x, in_axes=(0,0, None), out_axes=0)
+    vsparsify_x = vmap(sparsify_x, in_axes=(0, 0, None), out_axes=0)
+    vvsparsify_x = vmap(vsparsify_x, in_axes=(0, 0, None), out_axes=0)
     x_data = vvsparsify_x(x_data_a, x_data_b, sparsity_mask)
 
     for _ in range(meta_epochs):
@@ -427,8 +406,12 @@ def main():
         key, key2 = jax.random.split(key)
         test_x = generate_gaussian(key, (25, 10, input_dim), scale=0.1)
         # test_x = generate_gaussian(key, (25, len_trajec, input_dim), scale=0.1)
+
+        w_trajec_true, w_trajec_pred = get_flattened_trajecs(
+            key2, A_student, A_teacher, layer_sizes, test_x
+        )
         expdata["r2_score"].append(
-            calculate_r2_score(key2, A_student, A_teacher, layer_sizes, test_x)
+            sklearn.metrics.r2_score(w_trajec_true, w_trajec_pred)
         )
         print("r2_score: ", expdata["r2_score"][-1])
 
@@ -439,9 +422,12 @@ def main():
         print()
 
     key, key2 = jax.random.split(key)
-    # test_x = generate_gaussian(key, (1, 10, input_dim), scale=0.1)
-    # plot_PCA_trajec(key2, A_student, A_teacher, layer_sizes, test_x)
-    # print("created fig")
+    test_x = generate_gaussian(key, (1, 10, input_dim), scale=0.1)
+    w_trajec_true, w_trajec_pred = get_flattened_trajecs(
+        key2, A_student, A_teacher, layer_sizes, test_x
+    )
+    plot_PCA_trajec(w_trajec_true, w_trajec_pred)
+    print("created fig")
 
     print("Mem usage: ", round(process.memory_info().rss / 10**6), "MB")
     df = pd.DataFrame(expdata)
