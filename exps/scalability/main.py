@@ -24,6 +24,10 @@ def generate_gaussian(key, shape, scale=0.1):
     assert type(shape) is tuple, "shape passed must be a tuple"
     return scale * jax.random.normal(key, shape)
 
+def sparsify_x(x_data_a, x_data_b, sparsity_mask):
+    x_mask = sparsity_mask[0].reshape(x_data_a.shape)
+    x_mask_inv = jnp.array(jnp.logical_not(x_mask), dtype=int)
+    return x_mask * x_data_a + x_mask_inv * x_data_b
 
 def generate_sparsity_mask(key, layer_sizes, type, sparsity):
     sparsity_mask = []
@@ -174,7 +178,7 @@ def calc_loss_activity_trajec_(
 
     return loss
 
-
+# inefficient implementation: check out why!
 def update_weights_(plasticity_mask, weights, x, A):
     # note: check if this can be simplified with jax.tree_map()
     act = forward(weights, x)
@@ -313,10 +317,10 @@ def main():
 
     for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
         teacher_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
-        student_weights.append(generate_gaussian(key2, (n, m), scale=1 / (m + n)))
+        student_weights.append(generate_gaussian(key, (n, m), scale=1 / (m + n)))
 
     # sparsity of 0.9 retains ~90% of the trace
-    sparsity_mask = generate_sparsity_mask(key, layer_sizes, type, sparsity)
+    sparsity_mask = generate_sparsity_mask(key2, layer_sizes, type, sparsity)
     plasticity_mask = generate_plasticity_mask(upto_ith_order)
     num_meta_params = sum(plasticity_mask)
 
@@ -325,7 +329,7 @@ def main():
     # A_student = jnp.zeros((27,))
     # A_student = A_student.at[4].set(1)
     # A_student = A_student.at[15].set(-1)
-    A_student = generate_gaussian(key2, (27,), scale=1e-5)
+    A_student = generate_gaussian(key, (27,), scale=1e-5)
     A_student = plasticity_mask * A_student
 
     global forward, update_weights
@@ -364,16 +368,15 @@ def main():
         }
     )
 
-    x_data = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.01)
+    key, key2 = jax.random.split(key)
+    x_data_a = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.01)
     # generate same trajectory on repeat
     # x_data = jnp.repeat(x_data, num_trajec, axis=0).reshape((num_trajec, len_trajec, input_dim), order='F')
 
-    key, _ = jax.random.split(key)
-
     start_time = time.time()
     print("generating trajec w nested for loop")
-    teacher_trajec_data = generate_activity_trajec(
-        key, noise_scale, x_data, teacher_weights, A_teacher
+    teacher_trajec_data = generate_trajec(
+        key, noise_scale, x_data_a, teacher_weights, A_teacher
     )
 
     process = psutil.Process(os.getpid())
@@ -381,6 +384,11 @@ def main():
         "generated training data in %.2f s \nstarting training..."
         % (time.time() - start_time)
     )
+
+    x_data_b = generate_gaussian(key2, (num_trajec, len_trajec, input_dim), scale=0.01)
+    vsparsify_x = vmap(sparsify_x, in_axes=(0,0, None), out_axes=0)
+    vvsparsify_x = vmap(vsparsify_x, in_axes=(0,0, None), out_axes=0)
+    x_data = vvsparsify_x(x_data_a, x_data_b, sparsity_mask)
 
     for _ in range(meta_epochs):
         start_time = time.time()
@@ -431,9 +439,9 @@ def main():
         print()
 
     key, key2 = jax.random.split(key)
-    test_x = generate_gaussian(key, (1, 10, input_dim), scale=0.1)
-    plot_PCA_trajec(key2, A_student, A_teacher, layer_sizes, test_x)
-    print("created fig")
+    # test_x = generate_gaussian(key, (1, 10, input_dim), scale=0.1)
+    # plot_PCA_trajec(key2, A_student, A_teacher, layer_sizes, test_x)
+    # print("created fig")
 
     print("Mem usage: ", round(process.memory_info().rss / 10**6), "MB")
     df = pd.DataFrame(expdata)
