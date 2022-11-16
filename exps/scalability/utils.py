@@ -1,5 +1,7 @@
 import argparse
 import math
+import imageio
+import os
 
 def str_to_bool(value):
     if value.lower() in {"false", "f", "0", "no", "n"}:
@@ -107,3 +109,14 @@ def parse_args_old():
         args.output_file,
         args.jobid,
     )
+
+def make_gif(folder="imgs/"):
+
+    with imageio.get_writer("mygif.gif", mode="I") as writer:
+        filenames = os.listdir(folder)
+        for filename in filenames:
+            image = imageio.imread(os.path.join(folder, filename))
+            writer.append_data(image)
+    writer.close()
+
+    return
