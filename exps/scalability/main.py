@@ -242,16 +242,17 @@ def get_flattened_trajecs(key, A_student, A_teacher, layer_sizes, test_x):
     return w_trajec_true, w_trajec_pred
 
 
-def plot_PCA_trajec(w_trajec_true, w_trajec_pred):
+def plot_PCA_trajec(fig_name, w_trajec_true, w_trajec_pred):
 
-    w_trajec_true.extend(w_trajec_pred)
+    # w_trajec_true.extend(w_trajec_pred)
+    # teacher_3d, student_3d = np.split(combine_3d, 2)
     pca = PCA(n_components=3)
-    combine_3d = pca.fit_transform(w_trajec_true)
-    teacher_3d, student_3d = np.split(combine_3d, 2)
+    teacher_3d = pca.fit_transform(w_trajec_true)
+    student_3d = pca.transform(w_trajec_pred)
     ax = plt.axes(projection="3d")
     ax.plot3D(student_3d[:, 0], student_3d[:, 1], student_3d[:, 2], "orange")
     ax.plot3D(teacher_3d[:, 0], teacher_3d[:, 1], teacher_3d[:, 2], "green")
-    plt.savefig("PCA_trajec.png", dpi=400)
+    plt.savefig('imgs/' + fig_name, dpi=400)
 
     return
 
@@ -305,9 +306,12 @@ def main():
 
     A_teacher = generate_A_teacher(plasticity_rule)
     key, key2 = jax.random.split(key)
+
+    pca_x = generate_gaussian(key2, (1, 15, input_dim), scale=0.1)
+    key, pca_key = jax.random.split(key)
     # A_student = jnp.zeros((27,))
-    # A_student = A_student.at[4].set(1)
-    # A_student = A_student.at[15].set(-1)
+    # A_student = A_student.at[4].set(0.8)
+    # A_student = A_student.at[15].set(-0.8)
     A_student = generate_gaussian(key, (27,), scale=1e-5)
     A_student = plasticity_mask * A_student
 
@@ -349,6 +353,7 @@ def main():
 
     key, key2 = jax.random.split(key)
     x_data_a = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.01)
+
     # generate same trajectory on repeat
     # x_data = jnp.repeat(x_data, num_trajec, axis=0).reshape((num_trajec, len_trajec, input_dim), order='F')
 
@@ -369,7 +374,7 @@ def main():
     vvsparsify_x = vmap(vsparsify_x, in_axes=(0, 0, None), out_axes=0)
     x_data = vvsparsify_x(x_data_a, x_data_b, sparsity_mask)
 
-    for _ in range(meta_epochs):
+    for epoch in range(meta_epochs):
         start_time = time.time()
         expdata["loss"].append(0)
         expdata["mean_grad_norm"].append(0)
@@ -414,6 +419,11 @@ def main():
             sklearn.metrics.r2_score(w_trajec_true, w_trajec_pred)
         )
         print("r2_score: ", expdata["r2_score"][-1])
+        w_trajec_true, w_trajec_pred = get_flattened_trajecs(
+            pca_key, A_student, A_teacher, layer_sizes, pca_x
+        )
+        plot_PCA_trajec(str(epoch), w_trajec_true, w_trajec_pred)
+        print("saved PCA fig")
 
         print(
             "sqrt avg.loss (across num_trajectories, len_trajectory)",
@@ -421,13 +431,6 @@ def main():
         )
         print()
 
-    key, key2 = jax.random.split(key)
-    test_x = generate_gaussian(key, (1, 10, input_dim), scale=0.1)
-    w_trajec_true, w_trajec_pred = get_flattened_trajecs(
-        key2, A_student, A_teacher, layer_sizes, test_x
-    )
-    plot_PCA_trajec(w_trajec_true, w_trajec_pred)
-    print("created fig")
 
     print("Mem usage: ", round(process.memory_info().rss / 10**6), "MB")
     df = pd.DataFrame(expdata)
