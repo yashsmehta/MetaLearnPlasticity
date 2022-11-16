@@ -188,6 +188,7 @@ def update_weights_(plasticity_mask, weights, x, A):
     A = A * plasticity_mask
     for layer in range(len(weights)):
         dw = 0
+        # convert this to vmap mofo!
         for index in range(len(A)):
             i, j, k = utils.A_index_to_powers(index)
             dw += A[index] * jnp.multiply(
@@ -244,11 +245,10 @@ def get_flattened_trajecs(key, A_student, A_teacher, layer_sizes, test_x):
 
 def plot_PCA_trajec(fig_name, w_trajec_true, w_trajec_pred):
 
-    # w_trajec_true.extend(w_trajec_pred)
-    # teacher_3d, student_3d = np.split(combine_3d, 2)
+    w_trajec_true.extend(w_trajec_pred)
     pca = PCA(n_components=3)
-    teacher_3d = pca.fit_transform(w_trajec_true)
-    student_3d = pca.transform(w_trajec_pred)
+    combine_3d = pca.fit_transform(w_trajec_true)
+    teacher_3d, student_3d = np.split(combine_3d, 2)
     ax = plt.axes(projection="3d")
     ax.plot3D(student_3d[:, 0], student_3d[:, 1], student_3d[:, 2], "orange")
     ax.plot3D(teacher_3d[:, 0], teacher_3d[:, 1], teacher_3d[:, 2], "green")
@@ -307,7 +307,7 @@ def main():
     A_teacher = generate_A_teacher(plasticity_rule)
     key, key2 = jax.random.split(key)
 
-    pca_x = generate_gaussian(key2, (1, 15, input_dim), scale=0.1)
+    pca_x = generate_gaussian(key2, (1, 15, input_dim), scale=0.01)
     key, pca_key = jax.random.split(key)
     # A_student = jnp.zeros((27,))
     # A_student = A_student.at[4].set(0.8)
@@ -410,7 +410,6 @@ def main():
         )
         key, key2 = jax.random.split(key)
         test_x = generate_gaussian(key, (25, 10, input_dim), scale=0.1)
-        # test_x = generate_gaussian(key, (25, len_trajec, input_dim), scale=0.1)
 
         w_trajec_true, w_trajec_pred = get_flattened_trajecs(
             key2, A_student, A_teacher, layer_sizes, test_x
@@ -419,11 +418,11 @@ def main():
             sklearn.metrics.r2_score(w_trajec_true, w_trajec_pred)
         )
         print("r2_score: ", expdata["r2_score"][-1])
-        w_trajec_true, w_trajec_pred = get_flattened_trajecs(
-            pca_key, A_student, A_teacher, layer_sizes, pca_x
-        )
-        plot_PCA_trajec(str(epoch), w_trajec_true, w_trajec_pred)
-        print("saved PCA fig")
+        # w_trajec_true, w_trajec_pred = get_flattened_trajecs(
+        #     pca_key, A_student, A_teacher, layer_sizes, pca_x
+        # )
+        # plot_PCA_trajec(str(epoch), w_trajec_true, w_trajec_pred)
+        # print("saved PCA fig")
 
         print(
             "sqrt avg.loss (across num_trajectories, len_trajectory)",
