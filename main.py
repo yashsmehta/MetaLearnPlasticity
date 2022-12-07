@@ -62,7 +62,7 @@ def generate_plasticity_mask(upto_ith_order):
     plasticity_mask = [0 for _ in range(27)]
     for index in range(27):
         pxyw = utils.A_index_to_powers(index)
-        if sum(pxyw) <= upto_ith_order and sum(pxyw) > 1:
+        if sum(pxyw) <= upto_ith_order:
             plasticity_mask[index] = 1
 
     return jnp.array(plasticity_mask)
@@ -149,6 +149,24 @@ def calc_loss_weight_trajec_(
 
     return loss
 
+
+def get_all_weight_loss(
+    weights,
+    x,
+    A,
+    weight_trajectory,
+):
+    losses = np.zeros(len(weight_trajectory)) 
+
+    for i in range(len(weight_trajectory)):
+        teacher_weights = weight_trajectory[i]
+
+        for j in range(len(weights)):
+            loss_mat = optax.l2_loss(weights[j], teacher_weights[j])
+            losses[i] += jnp.mean(loss_mat)
+        weights = update_weights(weights, x[i], A)
+
+    return losses
 
 def calc_loss_activity_trajec_(
     sparsity_mask,
@@ -307,12 +325,12 @@ def main():
     A_teacher = generate_A_teacher(plasticity_rule)
     key, key2 = jax.random.split(key)
 
-    pca_x = generate_gaussian(key2, (1, 15, input_dim), scale=0.01)
+    pca_x = generate_gaussian(key2, (1, 15, input_dim), scale=0.1)
     key, pca_key = jax.random.split(key)
     # A_student = jnp.zeros((27,))
     # A_student = A_student.at[4].set(0.8)
     # A_student = A_student.at[15].set(-0.8)
-    A_student = generate_gaussian(key, (27,), scale=1e-5)
+    A_student = generate_gaussian(key, (27,), scale=1e-4)
     A_student = plasticity_mask * A_student
 
     global forward, update_weights
@@ -352,7 +370,7 @@ def main():
     )
 
     key, key2 = jax.random.split(key)
-    x_data_a = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.01)
+    x_data_a = generate_gaussian(key, (num_trajec, len_trajec, input_dim), scale=0.1)
 
     # generate same trajectory on repeat
     # x_data = jnp.repeat(x_data, num_trajec, axis=0).reshape((num_trajec, len_trajec, input_dim), order='F')
@@ -369,10 +387,12 @@ def main():
         % (time.time() - start_time)
     )
 
-    x_data_b = generate_gaussian(key2, (num_trajec, len_trajec, input_dim), scale=0.01)
+    x_data_b = generate_gaussian(key2, (num_trajec, len_trajec, input_dim), scale=0.1)
     vsparsify_x = vmap(sparsify_x, in_axes=(0, 0, None), out_axes=0)
     vvsparsify_x = vmap(vsparsify_x, in_axes=(0, 0, None), out_axes=0)
     x_data = vvsparsify_x(x_data_a, x_data_b, sparsity_mask)
+    teacher_w_trajec = generate_weight_trajec(key, noise_scale, x_data, teacher_weights, A_teacher)
+    losses_mat = np.zeros(len_trajec) 
 
     for epoch in range(meta_epochs):
         start_time = time.time()
@@ -390,6 +410,9 @@ def main():
                 student_weights, x, A_student, teacher_trajec
             )
             # loss_T = calc_loss_trajec(student_weights, x, A_student, teacher_trajec)
+            # losses = get_all_weight_loss(
+            #     student_weights, x, A_student, teacher_w_trajec[j])
+            # losses_mat = np.vstack((losses_mat, losses))
 
             expdata["mean_grad_norm"][-1] += jnp.linalg.norm(grads)
             expdata["loss"][-1] += loss_T
@@ -400,6 +423,13 @@ def main():
                 A_student,
             )
             A_student = optax.apply_updates(A_student, updates)
+
+        # losses_mat = np.delete(losses_mat, 0, 0)
+        # plt.imshow(losses_mat, aspect=0.02)
+        # plt.savefig('rastor.png')
+        # print(losses_mat.shape)
+        # with open('plotters/losses_mat50.npy', 'wb') as f:
+        #     np.save(f, losses_mat)
 
         expdata["loss"][-1] = round(math.sqrt(expdata["loss"][-1] / num_trajec), 6)
         expdata["mean_grad_norm"][-1] = round(

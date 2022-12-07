@@ -1,18 +1,18 @@
 # !/bin/bash
 
-for input_dim in 100 500
+for input_dim in 50 500
 do
-    for output_dim in 5 
+    for output_dim in 5 50
     do
-        for l1_lmbda in 1e-4 5e-5 1e-5 5e-6 1e-6 5e-7 1e-7 0
+        for len_trajec in 2 5 10
         do
-            for num_meta_params in 10 27
+            for l1_lmbda in 0 1e-7 1e-8 1e-9 5e-10 1e-10 5e-11 1e-11 5e-12 1e-12
             do
-                for len_trajec in 50
+                for jobid in 0 1 2 3 4
                 do
-                    bsub -n 12 -o cluster_logs.out -gpu "num=1" -J "exps" -q gpu_tesla "python exps/scalability/main.py \
-                    -input_dim $input_dim -output_dim $output_dim -num_meta_params $num_meta_params -l1_lmbda $l1_lmbda\
-                    -len_trajec $len_trajec -log_expdata True -num_trajec 250 -meta_epochs 1000 -output_file regularizer_exps_V2"
+                    bsub -n 4 -o cluster_logs.out -J "regexps" -q local "python exps/scalability/main.py \
+                    -input_dim $input_dim -output_dim $output_dim -upto_ith_order 3 -sparsity 1 -l1_lmbda $l1_lmbda \
+                    -jobid $jobid -noise_scale 0 -len_trajec $len_trajec -log_expdata True -num_trajec 200 -meta_epochs 100 -output_file regularizer_exps"
                 done
             done
         done

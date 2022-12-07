@@ -185,6 +185,7 @@ def main():
     print("platform: ", device)
     teacher_weights, student_weights = [], []
 
+    key, key2 = jax.random.split(key)
     for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
         # teacher_weights.append(generate_gaussian(key, (n, m), scale=1))
         # student_weights.append(generate_gaussian(key, (n, m), scale=1))

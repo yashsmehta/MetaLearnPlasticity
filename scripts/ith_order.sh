@@ -14,9 +14,9 @@ do
                     do
                         for jobid in 0 1 2 3 4
                         do
-                            bsub -n 12 -o cluster_logs.out -gpu "num=1" -J "ith" -q gpu_tesla "python exps/scalability/main.py \
+                            bsub -n 5 -o cluster_logs.out -gpu "num=1" -J "ith" -q gpu_rtx "python exps/scalability/main.py \
                             -input_dim $input_dim -output_dim $output_dim -upto_ith_order $upto_ith_order -sparsity $sparsity\
-                            -jobid $jobid -noise_scale $noise_scale -l1_lmbda $l1_lmbda -len_trajec 50 -log_expdata True -num_trajec 250 -meta_epochs 250 -output_file upto_ith_exps"
+                            -jobid $jobid -noise_scale $noise_scale -l1_lmbda $l1_lmbda -len_trajec 5 -log_expdata True -num_trajec 100 -meta_epochs 20 -output_file upto_ith_exps"
                         done
                     done
                 done
