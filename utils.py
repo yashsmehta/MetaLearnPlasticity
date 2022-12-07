@@ -12,8 +12,8 @@ def str_to_bool(value):
 
 def parse_args():
     ap = argparse.ArgumentParser()
-    ap.add_argument("-input_dim", type=int, default=5)
-    ap.add_argument("-output_dim", type=int, default=1)
+    ap.add_argument("-input_dim", type=int, default=10)
+    ap.add_argument("-output_dim", type=int, default=10)
     ap.add_argument("-hidden_layers", type=int, default=0)
     ap.add_argument("-hidden_neurons", type=int, default=-1)
     ap.add_argument(
