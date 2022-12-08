@@ -10,7 +10,7 @@ import time
 import math
 import random
 from pathlib import Path
-import utils
+import cosyne.utils as utils
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 

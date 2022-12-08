@@ -2,6 +2,7 @@ import os
 import jax
 import jax.numpy as jnp
 from jax.tree_util import Partial
+from jax import jit
 import optax
 import time
 import pandas as pd
@@ -10,7 +11,7 @@ import time
 import math
 import random
 from pathlib import Path
-import utils
+import cosyne.utils as utils
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
@@ -58,7 +59,6 @@ def generate_A_teacher(plasticity_rule):
     return jnp.array(A_teacher)
 
 
-@jax.jit
 def generate_weight_trajec(x, weights, A):
     weight_trajectory = []
 
@@ -69,7 +69,6 @@ def generate_weight_trajec(x, weights, A):
     return weight_trajectory
 
 
-@jax.jit
 def generate_activity_trajec(x, weights, A):
     activity_trajectory = []
 
@@ -81,50 +80,26 @@ def generate_activity_trajec(x, weights, A):
     return activity_trajectory
 
 
-def generate_sparsity_mask(key, layer_sizes, type, sparsity):
-    sparsity_mask = []
-    if type == 'activity':
-        for m in layer_sizes:
-            key, _ = jax.random.split(key)
-            sparsity_mask.append(jax.random.categorical(key, shape=(m,1), logits=jnp.log(jnp.array([1 - sparsity, sparsity]))))
-
-    elif type == 'weight':
-        for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
-            key, _ = jax.random.split(key)
-            sparsity_mask.append(jax.random.categorical(key, shape=(n,m), logits=jnp.log(jnp.array([1 - sparsity, sparsity]))))
-
-    return sparsity_mask
-
-def generate_measurement_noise(key, layer_sizes, type, scale):
-    measurement_noise = []
-    if type == 'activity':
-        for m in layer_sizes:
-            measurement_noise.append(scale * jax.random.normal(key, (m,1)))
-            key,_ = jax.random.split(key)
-
-    elif type == 'weight':
-        for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
-            measurement_noise.append(scale * jax.random.normal(key, (n,m)))
-            key,_ = jax.random.split(key)
-
-    return measurement_noise
-
-def calc_loss_weight_trajec_(measurement_noise, sparsity_mask, weights, x, A, weight_trajectory):
-    loss = 0
+def calc_loss_weight_trajec(mask, l1_lmbda, weights, x, A, weight_trajectory):
+    A = A * mask
+    # add L1 regularization term to enforce sparseness
+    # IMP: L1 regularizer needs to be calculated only on a subset of A + do correct loss normalization
+    loss = l1_lmbda * jnp.sum(jnp.absolute(A))
 
     for i in range(len(weight_trajectory)):
         weights = update_weights(weights, x[i], A)
         teacher_weights = weight_trajectory[i]
 
         for j in range(len(weights)):
-            loss_mat = optax.l2_loss(weights[j], (teacher_weights[j] + measurement_noise[j]))
-            assert sparsity_mask[j].shape == loss_mat.shape, "loss_mat and sparsity map shapes must match!"
-            loss += jnp.mean(jnp.multiply(sparsity_mask[j], loss_mat))
+            loss += jnp.mean(optax.l2_loss(weights[j], teacher_weights[j]))
 
     return loss / len(weight_trajectory)
 
-def calc_loss_activity_trajec_(measurement_noise, sparsity_mask, weights, x, A, activity_trajectory):
-    loss = 0
+
+def calc_loss_activity_trajec(mask, l1_lmbda, weights, x, A, activity_trajectory):
+    A = A * mask
+    # add L1 regularization term to enforce sparseness
+    loss = l1_lmbda * jnp.sum(jnp.absolute(A))
     use_input = True
 
     for i in range(len(activity_trajectory)):
@@ -133,10 +108,7 @@ def calc_loss_activity_trajec_(measurement_noise, sparsity_mask, weights, x, A, 
         act = forward(weights, x[i])
         teacher_act = activity_trajectory[i]
         for j in range(len(act)):
-            assert teacher_act[j].shape == measurement_noise[j].shape, "noise and activation shape must match!"
-            loss_mat = optax.l2_loss(act[j], (teacher_act[j] + measurement_noise[j]))
-            loss_t.append(jnp.mean(jnp.multiply(sparsity_mask[j], loss_mat)))
-
+            loss_t.append(jnp.mean(optax.l2_loss(act[j], teacher_act[j])))
         if not use_input:
             loss_t.pop(0)
         loss += sum(loss_t)
@@ -195,7 +167,7 @@ def main():
         output_file,
         jobid,
     ) = utils.parse_args_old()
-    np.random.seed(42)
+
     key = jax.random.PRNGKey(jobid)
 
     device = jax.lib.xla_bridge.get_backend().platform  # are we running on CPU or GPU?
@@ -213,7 +185,7 @@ def main():
     print("platform: ", device)
     teacher_weights, student_weights = [], []
 
-    # same random initialization of the weights at the start for student and teacher network
+    key, key2 = jax.random.split(key)
     for m, n in zip(layer_sizes[:-1], layer_sizes[1:]):
         # teacher_weights.append(generate_gaussian(key, (n, m), scale=1))
         # student_weights.append(generate_gaussian(key, (n, m), scale=1))
@@ -224,23 +196,20 @@ def main():
     mask = generate_mask(plasticity_rule, num_meta_params)
 
     key, key2 = jax.random.split(key)
-    A_student = generate_gaussian(key2, (27,), scale=1e-3)
+    A_student = generate_gaussian(key2, (27,), scale=1e-4)
     # A_student = jnp.zeros((27,))
 
     global forward, update_weights
-    forward = jax.jit(Partial(forward_, non_linear))
-    update_weights = jax.jit(Partial((update_weights_), mask))
+    forward = jit(Partial(forward_, non_linear))
+    update_weights = jit(Partial((update_weights_), mask))
 
-    # sparsity of 0.9 retains ~90% of the trace
-    sparsity_mask = generate_sparsity_mask(key, layer_sizes, type, sparsity)
-    measurement_noise = generate_measurement_noise(key2, layer_sizes, type, noise_scale)
-
+    # same random initialization of the weights at the start for student and teacher network
     if type == "activity":
-        calc_loss_trajec = jax.jit(Partial((calc_loss_activity_trajec_), measurement_noise, sparsity_mask))
-        generate_trajec = generate_activity_trajec
+        calc_loss_trajec = jit(Partial((calc_loss_activity_trajec), mask, l1_lmbda))
+        generate_trajec = jit(generate_activity_trajec)
     else:
-        calc_loss_trajec = jax.jit(Partial((calc_loss_weight_trajec_), measurement_noise, sparsity_mask))
-        generate_trajec = generate_weight_trajec
+        calc_loss_trajec = jit(Partial((calc_loss_weight_trajec), mask, l1_lmbda))
+        generate_trajec = jit(generate_weight_trajec)
 
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(A_student)
@@ -290,7 +259,6 @@ def main():
             math.sqrt(expdata["mean_grad_norm"][-1] / num_trajec), 6
         )
 
-        print("A student:", A_student)
         print(
             "sqrt avg. avg. loss (across num_trajectories, len_trajectory)",
             expdata["loss"][-1],
@@ -318,6 +286,7 @@ def main():
         df["avg_backprop_time"],
         df["device"],
         df["num_meta_params"],
+        df["l1_lmbda"],
     ) = (
         input_dim,
         output_dim,
@@ -333,6 +302,7 @@ def main():
         avg_backprop_time,
         device,
         num_meta_params,
+        l1_lmbda,
     )
 
     print(df.head(5))
