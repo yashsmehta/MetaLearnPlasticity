@@ -1,38 +1,53 @@
 import os
 import jax
 import jax.numpy as jnp
-from jax import jit, vmap
+from jax import jit
 import optax
 import time
 import numpy as np
-import time
 
-import cosyne.utils as utils
+import plasticity
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
 def generate_gaussian(key, shape, scale=0.1):
+    """
+    returns a random normal tensor of specified shape with zero mean and
+    'scale' variance
+    """
     assert type(shape) is tuple, "shape passed must be a tuple"
     return scale * jax.random.normal(key, shape)
 
 
 class Network:
-    def __init__(self, non_linear=True, jit=True):
-        self.non_linear = non_linear
-        if jit:
-            self.forward = jax.jit(self.forward)
-            self.generate_trajectory = jax.jit(self.generate_trajectory)
+    """
+    class to bundle functions to generate activity trajectory, given the
+    initial weights and input sequence
+    """
 
+    def __init__(self, non_linear=True):
+        self.non_linear = non_linear
+        self.update_weights = jit(plasticity.volterra_update_weights)
+
+    @jit
     def generate_trajectory(
         self, input_sequence, initial_weights, volterra_coefficients
     ):
+        """
+        generate a single trajectory given an input sequence, initial weights
+        and the "meta" plasticity coefficients
+        """
+
         def step(weights, inputs):
             return self.update_weights(inputs, weights, volterra_coefficients)
 
-        final_weights, activities = jax.lax.scan(step, initial_weights, input_sequence)
+        final_weights, activities = jax.lax.scan(
+            step, initial_weights, input_sequence
+            )
         return activities
 
+    @jit
     def forward(self, inputs, weights):
         activatation = inputs @ weights
         if self.non_linear:
@@ -48,6 +63,10 @@ def compute_loss(student_trajectory, teacher_trajectory):
 def compute_plasticity_coefficients_loss(
     input_sequence, initial_weights, oja_coefficients, student_coefficients
 ):
+    """
+    function will generate the teacher trajectory and student trajectory
+    using corresponding coefficients and then compute the mse loss between them
+    """
     network = Network()
     teacher_trajectory = network.generate_trajectory(
         input_sequence, initial_weights, oja_coefficients
@@ -65,15 +84,15 @@ if __name__ == "__main__":
     num_trajec, len_trajec = 5, 500
     epochs = 1
 
-    initial_weights = generate_gaussian(key, (100, 10))  # (input_dim, output_dim)
+    initial_weights = generate_gaussian(key, (100, 10))
     input_data = generate_gaussian(
         key, (num_trajec, len_trajec, 100)
     )  # (num_trajectories, length_trajectory, input_dim)
 
-    oja_coefficients = np.zeros((27,))
-    oja_coefficients[utils.powers_to_A_index(1, 1, 0)] = 1
-    oja_coefficients[utils.powers_to_A_index(0, 2, 1)] = -1
-    student_coefficients = generate_gaussian(key, (27,), scale=1e-4)
+    oja_coefficients = np.zeros((3, 3, 3))
+    oja_coefficients[1][1][0] = 1
+    oja_coefficients[0][2][1] = -1
+    student_coefficients = generate_gaussian(key, (3, 3, 3), scale=1e-4)
 
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(student_coefficients)
@@ -83,14 +102,26 @@ if __name__ == "__main__":
             start = time.time()
             input_sequence = input_data[j]
 
+            # loss = compute_plasticity_coefficients_loss(
+            #     input_sequence, initial_weights,
+            #     oja_coefficients, student_coefficients
+            # )
+
             loss, grads = jax.value_and_grad(
                 compute_plasticity_coefficients_loss, argnums=3
-            )(input_sequence, initial_weights, oja_coefficients, student_coefficients)
+            )(
+                input_sequence, initial_weights,
+                oja_coefficients, student_coefficients
+            )
+
             print("loss ", loss)
+
             updates, opt_state = optimizer.update(
                 grads,
                 opt_state,
                 student_coefficients,
             )
-            student_coefficients = optax.apply_updates(student_coefficients, updates)
+            student_coefficients = optax.apply_updates(
+                student_coefficients, updates
+                )
             print("time for backprop update: ", time.time() - start)
