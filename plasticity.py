@@ -4,9 +4,9 @@ from jax.lax import reshape
 from jax import jit, vmap
 
 
-def volterra_update_weights(network, inputs, weights, volterra_coefficients):
-    activation = network.forward(inputs, weights)
-    n, m = weights.shape
+def volterra_update_weights(self, inputs, weights, volterra_coefficients):
+    activation = self.forward(inputs, weights)
+    m, n = weights.shape
     in_grid, out_grid = jnp.meshgrid(
         reshape(inputs, (m,)), reshape(activation, (n,)), indexing="ij"
     )
@@ -17,7 +17,11 @@ def volterra_update_weights(network, inputs, weights, volterra_coefficients):
         reshape(weights, (m * n, 1)),
         volterra_coefficients,
     )
-    dw = reshape(dw, (n, m))
+    dw = reshape(dw, (m, n))
+    assert (
+        dw.shape == weights.shape
+    ), "dw and w should be of the same shape to prevent broadcasting while adding"
+    weights += dw
 
     return (weights, activation)
 
