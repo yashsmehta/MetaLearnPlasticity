@@ -41,19 +41,23 @@ def compute_plasticity_coefficients_loss(
     student_trajectory = network.generate_trajectory(
         input_sequence, initial_weights, student_coefficients
     )
+
     loss = compute_loss(student_trajectory, teacher_trajectory)
+    # l1_lambda = 1e-7
+    # loss += l1_lambda * jnp.sum(jnp.absolute(student_coefficients))
     return loss
 
 
 if __name__ == "__main__":
-    num_trajec, len_trajec = 200, 100
-    input_dim, output_dim = 100, 10
-    epochs = 50
+    num_trajec, len_trajec = 100, 50
+    input_dim, output_dim = 500, 10
+    epochs = 100
 
     key = jax.random.PRNGKey(0)
-    initial_weights = generate_gaussian(key,
-        (input_dim, output_dim),
-        scale=1 / (input_dim + output_dim))
+    initial_weights = generate_gaussian(
+                        key,
+                        (input_dim, output_dim),
+                        scale=1 / (input_dim + output_dim))
 
     key, key2 = jax.random.split(key)
     # (num_trajectories, length_trajectory, input_dim)
@@ -65,24 +69,30 @@ if __name__ == "__main__":
     oja_coefficients = np.zeros((3, 3, 3))
     oja_coefficients[1][1][0] = 1
     oja_coefficients[0][2][1] = -1
-    # student_coefficients = generate_gaussian(key2, (3, 3, 3), scale=1e-4)
-    student_coefficients = jnp.zeros((3,3,3))
+    student_coefficients = generate_gaussian(key, (3, 3, 3), scale=1e-5)
+    # student_coefficients = jnp.zeros((3,3,3))
 
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(student_coefficients)
 
-    for _ in range(epochs):
-        loss_i = 0
+    device = jax.lib.xla_bridge.get_backend().platform  # are we running on CPU or GPU?
+    print("platform: ", device)
+    print("layer size: [{}, {}]".format(input_dim, output_dim))
+    print()
+
+    for epoch in range(epochs):
+        loss = 0
+        start = time.time()
         for j in range(num_trajec):
-            start = time.time()
             input_sequence = input_data[j]
 
-            loss, grads = jax.value_and_grad(compute_plasticity_coefficients_loss, argnums=3)(
+            loss_j, grads = jax.value_and_grad(compute_plasticity_coefficients_loss, argnums=3)(
                 input_sequence,
                 initial_weights,
                 oja_coefficients,
                 student_coefficients)
-            loss_i += loss
+
+            loss += loss_j
 
             updates, opt_state = optimizer.update(
                 grads,
@@ -93,7 +103,9 @@ if __name__ == "__main__":
                 student_coefficients,
                 updates)
 
-        print("loss ", loss_i)
+        print("epoch {} in {}s".format(epoch, round((time.time() - start), 3)))
+        print("average loss per trajectory: ", round((loss / num_trajec), 10))
+        print()
 
     print("oja coefficients\n", oja_coefficients)
     print("student coefficients\n", student_coefficients)

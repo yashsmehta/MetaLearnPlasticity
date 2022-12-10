@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 from jax.lax import reshape
-from jax import jit, vmap
+from jax import vmap
 
 non_linear = True
 
@@ -66,7 +66,6 @@ def get_synapse_tensor(pre, post, weight):
     synapse_tensor = jnp.reshape(synapse_tensor, (3, 3, 3))
     return synapse_tensor
 
-@jit
 def mlp_update_weights(self, inputs, weights, plasticity_mlp):
     act = self.forward(inputs, weights)
     n, m = weights.shape
@@ -82,8 +81,7 @@ def mlp_update_weights(self, inputs, weights, plasticity_mlp):
         )
     )
 
-    # dw = vmap(mlp_synaptic_dw, in_axes=(0, None))(local_info, plasticity_mlp)
-    dw = jit(vmap(mlp_synaptic_dw, in_axes=(0, None))(local_info, plasticity_mlp))
+    dw = vmap(mlp_synaptic_dw, in_axes=(0, None))(local_info, plasticity_mlp)
     dw = reshape(dw, (n, m))
 
     assert (
