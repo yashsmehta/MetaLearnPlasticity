@@ -27,19 +27,20 @@ def compute_loss(student_trajectory, teacher_trajectory):
 @jit
 def compute_plasticity_coefficients_loss(
         input_sequence,
-        initial_weights,
         oja_coefficients,
-        student_coefficients):
+        winit_teacher,
+        student_coefficients,
+        winit_student):
     """
     function will generate the teacher trajectory and student trajectory
     using corresponding coefficients and then compute the mse loss between them
     """
     teacher_trajectory = network.generate_trajectory(
-        input_sequence, initial_weights, oja_coefficients
+        input_sequence, winit_teacher, oja_coefficients
     )
 
     student_trajectory = network.generate_trajectory(
-        input_sequence, initial_weights, student_coefficients
+        input_sequence, winit_student, student_coefficients
     )
 
     loss = compute_loss(student_trajectory, teacher_trajectory)
@@ -49,23 +50,29 @@ def compute_plasticity_coefficients_loss(
 
 
 if __name__ == "__main__":
-    num_trajec, len_trajec = 100, 50
-    input_dim, output_dim = 500, 10
+    num_trajec, len_trajec = 200, 50
+    input_dim, output_dim = 100, 100
     epochs = 100
 
     key = jax.random.PRNGKey(0)
-    initial_weights = generate_gaussian(
+    winit_teacher = generate_gaussian(
                         key,
                         (input_dim, output_dim),
                         scale=1 / (input_dim + output_dim))
 
     key, key2 = jax.random.split(key)
+    winit_student = generate_gaussian(
+                        key,
+                        (input_dim, output_dim),
+                        scale=1 / (input_dim + output_dim))
+
     # (num_trajectories, length_trajectory, input_dim)
     input_data = generate_gaussian(
         key,
         (num_trajec, len_trajec, input_dim),
         scale=0.1)
 
+    key, key2 = jax.random.split(key)
     oja_coefficients = np.zeros((3, 3, 3))
     oja_coefficients[1][1][0] = 1
     oja_coefficients[0][2][1] = -1
@@ -79,23 +86,27 @@ if __name__ == "__main__":
     print("platform: ", device)
     print("layer size: [{}, {}]".format(input_dim, output_dim))
     print()
+    del_w = []
 
     for epoch in range(epochs):
         loss = 0
         start = time.time()
+        del_w.append(np.absolute(winit_teacher - winit_student))
         for j in range(num_trajec):
             input_sequence = input_data[j]
 
-            loss_j, grads = jax.value_and_grad(compute_plasticity_coefficients_loss, argnums=3)(
+            loss_j, (meta_grads, grads_winit) = jax.value_and_grad(compute_plasticity_coefficients_loss, argnums=(3, 4))(
                 input_sequence,
-                initial_weights,
                 oja_coefficients,
-                student_coefficients)
+                winit_teacher,
+                student_coefficients,
+                winit_student)
 
             loss += loss_j
-
+            lr = 0.1
+            winit_student -= lr * grads_winit
             updates, opt_state = optimizer.update(
-                grads,
+                meta_grads,
                 opt_state,
                 student_coefficients)
 
@@ -107,5 +118,6 @@ if __name__ == "__main__":
         print("average loss per trajectory: ", round((loss / num_trajec), 10))
         print()
 
+    np.savez("expdata/del_w", del_w)
     print("oja coefficients\n", oja_coefficients)
     print("student coefficients\n", student_coefficients)
