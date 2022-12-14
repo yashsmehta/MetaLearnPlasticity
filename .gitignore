@@ -11,3 +11,4 @@ logs/*
 .vscode/*
 __pycache__/
 imgs/*
+*.sw[pmno]
