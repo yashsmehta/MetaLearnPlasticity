@@ -57,6 +57,9 @@ if __name__ == "__main__":
     input_dim, output_dim = 100, 100
     epochs = 30
 
+    # step size of the gradient descent on the initial student weights
+    winit_step_size = 0.1
+
     key = jax.random.PRNGKey(0)
     winit_teacher = generate_gaussian(
                         key,
@@ -90,7 +93,7 @@ if __name__ == "__main__":
     print("platform: ", device)
     print("layer size: [{}, {}]".format(input_dim, output_dim))
     print()
-    del_w = []
+    diff_w = []
 
     loss_value_grad = jax.value_and_grad(
         compute_plasticity_coefficients_loss,
@@ -99,7 +102,7 @@ if __name__ == "__main__":
     for epoch in range(epochs):
         loss = 0
         start = time.time()
-        del_w.append(np.absolute(winit_teacher - winit_student))
+        diff_w.append(np.absolute(winit_teacher - winit_student))
         for j in range(num_trajec):
             input_sequence = input_data[j]
 
@@ -111,8 +114,7 @@ if __name__ == "__main__":
                 winit_student)
 
             loss += loss_j
-            lr = 0.1
-            winit_student -= lr * grads_winit
+            winit_student -= winit_step_size * grads_winit
             updates, opt_state = optimizer.update(
                 meta_grads,
                 opt_state,
@@ -126,6 +128,6 @@ if __name__ == "__main__":
         print("average loss per trajectory: ", round((loss / num_trajec), 10))
         print()
 
-    np.savez("expdata/winit/sameinit", del_w)
+    np.savez("expdata/winit/sameinit", diff_w)
     print("oja coefficients\n", oja_coefficients)
     print("student coefficients\n", student_coefficients)
