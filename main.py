@@ -1,21 +1,13 @@
 from functools import partial
 from tqdm import tqdm
+from utils import generate_gaussian
 import jax
 import jax.numpy as jnp
+import network
 import numpy as np
 import optax
+import synapse
 import time
-
-import network
-
-
-def generate_gaussian(key, shape, scale=0.1):
-    """
-    returns a random normal tensor of specified shape with zero mean and
-    'scale' variance
-    """
-    assert type(shape) is tuple, "shape passed must be a tuple"
-    return scale * jax.random.normal(key, shape)
 
 
 def compute_loss(student_trajectory, teacher_trajectory):
@@ -26,11 +18,12 @@ def compute_loss(student_trajectory, teacher_trajectory):
     return jnp.mean(optax.l2_loss(student_trajectory, teacher_trajectory))
 
 
-@partial(jax.jit, static_argnames=['activation_function'])
+@partial(jax.jit, static_argnames=['student_plasticity_function', 'activation_function'])
 def compute_plasticity_coefficients_loss(
         input_sequence,
         teacher_trajectory,
         student_coefficients,
+        student_plasticity_function,
         winit_student,
         activation_function):
     """
@@ -41,8 +34,9 @@ def compute_plasticity_coefficients_loss(
     student_trajectory = network.generate_trajectory(
         input_sequence,
         winit_student,
-        activation_function,
-        student_coefficients)
+        student_coefficients,
+        student_plasticity_function,
+        activation_function)
 
     loss = compute_loss(student_trajectory, teacher_trajectory)
 
@@ -59,7 +53,15 @@ if __name__ == "__main__":
 
     activation_function = jax.nn.sigmoid
 
+    teacher_coefficients, teacher_plasticity_function = \
+        synapse.init_volterra('oja')
+
     key = jax.random.PRNGKey(0)
+    student_coefficients, student_plasticity_function = \
+        synapse.init_volterra('random', key)
+
+    key, key2 = jax.random.split(key)
+
     winit_teacher = generate_gaussian(
                         key,
                         (input_dim, output_dim),
@@ -77,16 +79,6 @@ if __name__ == "__main__":
         (num_trajec, len_trajec, input_dim),
         scale=0.1)
 
-    key, key2 = jax.random.split(key)
-
-    # use Oja's rule for teacher coefficients
-    teacher_coefficients = np.zeros((3, 3, 3))
-    teacher_coefficients[1][1][0] = 1
-    teacher_coefficients[0][2][1] = -1
-
-    # initialize student coefficients randomly
-    student_coefficients = generate_gaussian(key, (3, 3, 3), scale=1e-5)
-
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(student_coefficients)
 
@@ -99,14 +91,15 @@ if __name__ == "__main__":
 
     loss_value_grad = jax.value_and_grad(
         compute_plasticity_coefficients_loss,
-        argnums=(2, 3))
+        argnums=(2, 4))
 
     # precompute all teacher trajectories
     teacher_trajectories = network.generate_trajectories(
         input_data,
         winit_teacher,
-        activation_function,
-        teacher_coefficients)
+        teacher_coefficients,
+        teacher_plasticity_function,
+        activation_function)
 
     for epoch in tqdm(range(epochs), "epoch"):
         loss = 0
@@ -121,6 +114,7 @@ if __name__ == "__main__":
                 input_sequence,
                 teacher_trajectory,
                 student_coefficients,
+                student_plasticity_function,
                 winit_student,
                 activation_function)
 
