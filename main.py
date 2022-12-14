@@ -1,3 +1,4 @@
+from functools import partial
 from jax import jit
 from tqdm import tqdm
 import jax
@@ -27,24 +28,25 @@ def compute_loss(student_trajectory, teacher_trajectory):
     return jnp.mean(optax.l2_loss(student_trajectory, teacher_trajectory))
 
 
-@jit
+@partial(jax.jit, static_argnames=['activation_function'])
 def compute_plasticity_coefficients_loss(
         input_sequence,
         oja_coefficients,
         winit_teacher,
         student_coefficients,
-        winit_student):
+        winit_student,
+        activation_function):
     """
     generates the teacher trajectory and student trajectory
     using corresponding coefficients and then calls function to compute
     loss between them
     """
     teacher_trajectory = network.generate_trajectory(
-        input_sequence, winit_teacher, oja_coefficients
+        input_sequence, winit_teacher, activation_function, oja_coefficients
     )
 
     student_trajectory = network.generate_trajectory(
-        input_sequence, winit_student, student_coefficients
+        input_sequence, winit_student, activation_function, student_coefficients
     )
 
     loss = compute_loss(student_trajectory, teacher_trajectory)
@@ -59,6 +61,8 @@ if __name__ == "__main__":
 
     # step size of the gradient descent on the initial student weights
     winit_step_size = 0.1
+
+    activation_function = jax.nn.sigmoid
 
     key = jax.random.PRNGKey(0)
     winit_teacher = generate_gaussian(
@@ -110,7 +114,8 @@ if __name__ == "__main__":
                 oja_coefficients,
                 winit_teacher,
                 student_coefficients,
-                winit_student)
+                winit_student,
+                activation_function)
 
             loss += loss_j
             winit_student -= winit_step_size * grads_winit

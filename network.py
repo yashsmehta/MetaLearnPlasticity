@@ -3,12 +3,11 @@ import jax.numpy as jnp
 from jax.lax import reshape
 from jax import vmap
 
-non_linear = True
-
 
 def generate_trajectory(
         input_sequence,
         initial_weights,
+        activation_function,
         volterra_coefficients):
     """
     generate a single trajectory given an input sequence, initial weights
@@ -28,21 +27,20 @@ def generate_trajectory(
     return activity_trajec
 
 
-def forward(inputs, weights):
-    activatation = inputs @ weights
-    if non_linear:
-        activatation = jax.nn.sigmoid(activatation)
-    return activatation
+def network_step(
+        inputs,
+        weights,
+        activation_function,
+        volterra_coefficients):
 
+    outputs = activation_function(inputs @ weights)
 
-def volterra_update_weights(inputs, weights, volterra_coefficients):
-    activation = forward(inputs, weights)
     m, n = weights.shape
     in_grid, out_grid = jnp.meshgrid(
-        reshape(inputs, (m,)), reshape(activation, (n,)), indexing="ij"
+        reshape(inputs, (m,)), reshape(outputs, (n,)), indexing="ij"
     )
 
-    dw = vmap(volterra_synaptic_dw, in_axes=(0, 0, 0, None))(
+    dw = vmap(synapse_step, in_axes=(0, 0, 0, None))(
             reshape(in_grid, (m * n, 1)),
             reshape(out_grid, (m * n, 1)),
             reshape(weights, (m * n, 1)),
@@ -56,10 +54,10 @@ def volterra_update_weights(inputs, weights, volterra_coefficients):
         "adding"
     weights += dw
 
-    return (weights, activation)
+    return (weights, outputs)
 
 
-def volterra_synaptic_dw(pre, post, weight, volterra_coefficients):
+def synapse_step(pre, post, weight, volterra_coefficients):
     synapse_tensor = get_synapse_tensor(pre, post, weight)
     dw = jnp.sum(jnp.multiply(volterra_coefficients, synapse_tensor))
     return dw
