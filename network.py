@@ -16,7 +16,11 @@ def generate_trajectory(
     """
 
     def step(weights, inputs):
-        return volterra_update_weights(inputs, weights, volterra_coefficients)
+        return network_step(
+            inputs,
+            weights,
+            activation_function,
+            volterra_coefficients)
 
     final_weights, activity_trajec = jax.lax.scan(
         step, initial_weights, input_sequence
@@ -70,41 +74,3 @@ def get_synapse_tensor(pre, post, weight):
 
     synapse_tensor = jnp.reshape(synapse_tensor, (3, 3, 3))
     return synapse_tensor
-
-
-def mlp_update_weights(self, inputs, weights, plasticity_mlp):
-    act = self.forward(inputs, weights)
-    n, m = weights.shape
-    in_grid, out_grid = jnp.meshgrid(
-        reshape(inputs, (m,)), reshape(act, (n,)), indexing="ij"
-    )
-
-    local_info = jnp.hstack(
-        (
-            reshape(weights, (m * n, 1)),
-            reshape(in_grid, (m * n, 1)),
-            reshape(out_grid, (m * n, 1)),
-        )
-    )
-
-    dw = vmap(mlp_synaptic_dw, in_axes=(0, None))(local_info, plasticity_mlp)
-    dw = reshape(dw, (n, m))
-
-    assert (
-        dw.shape == weights.shape
-    ), \
-        "dw and w should be of the same shape to prevent broadcasting while " \
-        "adding"
-    weights += dw
-
-    return (weights, act)
-
-
-def mlp_synaptic_dw(local_info, plasticity_mlp):
-    # inputs shape: (3,)
-    act = local_info
-    for params in plasticity_mlp:
-        h = jnp.dot(params, act)
-        act = jax.nn.tanh(h)
-
-    return act
