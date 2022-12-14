@@ -10,12 +10,12 @@ import numpy as np
 import time
 import math
 from pathlib import Path
-import cosyne.utils as utils
 import sklearn.metrics
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 import psutil
-import resource
+
+import utils
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
@@ -121,6 +121,7 @@ def generate_activity_trajec(key, noise_scale, x_data, weights, A):
                 act[layer] += noise_scale * jax.random.normal(key, act[layer].shape)
             activity_trajec_data[i].append(act)
             weights = update_weights(weights, x_data[i][j], A)
+            # print("teacher weights (i):", weights)
 
     return activity_trajec_data
 
@@ -179,20 +180,24 @@ def calc_loss_activity_trajec_(
 ):
     loss = 0
     use_input = False
+    teacher_trajectory, student_trajectory = [], []
 
     for i in range(len(activity_trajectory)):
         loss_t = []
         act = forward(weights, x[i])
         teacher_act = activity_trajectory[i]
+        teacher_trajectory.append(teacher_act[1])
+        student_trajectory.append(act[1])
+
         for j in range(len(act)):
             loss_mat = optax.l2_loss(act[j], teacher_act[j])
-            loss_t.append(jnp.mean(jnp.multiply(sparsity_mask[j], loss_mat)))
+            loss_t.append(jnp.sum(jnp.multiply(sparsity_mask[j], loss_mat)))
         if not use_input:
             loss_t.pop(0)
         loss += sum(loss_t)
         weights = update_weights(weights, x[i], A)
 
-    loss /= len(activity_trajectory)
+    # loss /= len(activity_trajectory)
     # add L1 regularization term to enforce sparseness
     loss += l1_lmbda * jnp.sum(jnp.absolute(A * plasticity_mask))
 
@@ -326,7 +331,6 @@ def main():
 
     pca_x = generate_gaussian(key2, (1, 15, input_dim), scale=0.1)
     key, pca_key = jax.random.split(key)
-    # A_student = jnp.zeros((27,))
     # A_student = A_student.at[4].set(0.8)
     # A_student = A_student.at[15].set(-0.8)
     A_student = generate_gaussian(key, (27,), scale=1e-4)
@@ -390,8 +394,6 @@ def main():
     vsparsify_x = vmap(sparsify_x, in_axes=(0, 0, None), out_axes=0)
     vvsparsify_x = vmap(vsparsify_x, in_axes=(0, 0, None), out_axes=0)
     x_data = vvsparsify_x(x_data_a, x_data_b, sparsity_mask)
-    teacher_w_trajec = generate_weight_trajec(key, noise_scale, x_data, teacher_weights, A_teacher)
-    losses_mat = np.zeros(len_trajec) 
 
     for epoch in range(meta_epochs):
         start_time = time.time()
@@ -502,7 +504,7 @@ def main():
         jobid,
     )
 
-    print(df.tail(5))
+    # print(df.tail(5))
 
     if log_expdata:
         use_header = False
