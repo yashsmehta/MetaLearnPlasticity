@@ -21,6 +21,10 @@ def generate_gaussian(key, shape, scale=0.1):
 
 
 def compute_loss(student_trajectory, teacher_trajectory):
+    """
+    takes a single student and teacher trajectory and return the MSE loss
+    between them
+    """
     return jnp.mean(optax.l2_loss(student_trajectory, teacher_trajectory))
 
 
@@ -32,8 +36,9 @@ def compute_plasticity_coefficients_loss(
         student_coefficients,
         winit_student):
     """
-    function will generate the teacher trajectory and student trajectory
-    using corresponding coefficients and then compute the mse loss between them
+    generates the teacher trajectory and student trajectory
+    using corresponding coefficients and then calls function to compute
+    loss between them
     """
     teacher_trajectory = network.generate_trajectory(
         input_sequence, winit_teacher, oja_coefficients
@@ -50,9 +55,9 @@ def compute_plasticity_coefficients_loss(
 
 
 if __name__ == "__main__":
-    num_trajec, len_trajec = 200, 50
+    num_trajec, len_trajec = 50, 50
     input_dim, output_dim = 100, 100
-    epochs = 100
+    epochs = 30
 
     key = jax.random.PRNGKey(0)
     winit_teacher = generate_gaussian(
@@ -60,11 +65,11 @@ if __name__ == "__main__":
                         (input_dim, output_dim),
                         scale=1 / (input_dim + output_dim))
 
-    key, key2 = jax.random.split(key)
     winit_student = generate_gaussian(
                         key,
                         (input_dim, output_dim),
                         scale=1 / (input_dim + output_dim))
+    key, key2 = jax.random.split(key)
 
     # (num_trajectories, length_trajectory, input_dim)
     input_data = generate_gaussian(
@@ -118,6 +123,6 @@ if __name__ == "__main__":
         print("average loss per trajectory: ", round((loss / num_trajec), 10))
         print()
 
-    np.savez("expdata/del_w", del_w)
+    np.savez("expdata/winit/sameinit", del_w)
     print("oja coefficients\n", oja_coefficients)
     print("student coefficients\n", student_coefficients)
