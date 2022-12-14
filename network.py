@@ -4,6 +4,19 @@ from jax.lax import reshape
 from jax import vmap
 
 
+def generate_trajectories(
+        input_data,
+        initial_weights,
+        activation_function,
+        volterra_coefficients):
+
+    return vmap(generate_trajectory, in_axes=(0, None, None, None))(
+        input_data,
+        initial_weights,
+        activation_function,
+        volterra_coefficients)
+
+
 def generate_trajectory(
         input_sequence,
         initial_weights,

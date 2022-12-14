@@ -1,11 +1,9 @@
 from functools import partial
-from jax import jit
 from tqdm import tqdm
 import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-import os
 import time
 
 import network
@@ -31,23 +29,20 @@ def compute_loss(student_trajectory, teacher_trajectory):
 @partial(jax.jit, static_argnames=['activation_function'])
 def compute_plasticity_coefficients_loss(
         input_sequence,
-        oja_coefficients,
-        winit_teacher,
+        teacher_trajectory,
         student_coefficients,
         winit_student,
         activation_function):
     """
-    generates the teacher trajectory and student trajectory
-    using corresponding coefficients and then calls function to compute
-    loss between them
+    generates the student trajectory using corresponding coefficients and then
+    calls function to compute loss to the given teacher trajectory
     """
-    teacher_trajectory = network.generate_trajectory(
-        input_sequence, winit_teacher, activation_function, oja_coefficients
-    )
 
     student_trajectory = network.generate_trajectory(
-        input_sequence, winit_student, activation_function, student_coefficients
-    )
+        input_sequence,
+        winit_student,
+        activation_function,
+        student_coefficients)
 
     loss = compute_loss(student_trajectory, teacher_trajectory)
 
@@ -83,9 +78,13 @@ if __name__ == "__main__":
         scale=0.1)
 
     key, key2 = jax.random.split(key)
-    oja_coefficients = np.zeros((3, 3, 3))
-    oja_coefficients[1][1][0] = 1
-    oja_coefficients[0][2][1] = -1
+
+    # use Oja's rule for teacher coefficients
+    teacher_coefficients = np.zeros((3, 3, 3))
+    teacher_coefficients[1][1][0] = 1
+    teacher_coefficients[0][2][1] = -1
+
+    # initialize student coefficients randomly
     student_coefficients = generate_gaussian(key, (3, 3, 3), scale=1e-5)
 
     optimizer = optax.adam(learning_rate=1e-3)
@@ -100,19 +99,27 @@ if __name__ == "__main__":
 
     loss_value_grad = jax.value_and_grad(
         compute_plasticity_coefficients_loss,
-        argnums=(3, 4))
+        argnums=(2, 3))
+
+    # precompute all teacher trajectories
+    teacher_trajectories = network.generate_trajectories(
+        input_data,
+        winit_teacher,
+        activation_function,
+        teacher_coefficients)
 
     for epoch in tqdm(range(epochs), "epoch"):
         loss = 0
         start = time.time()
         diff_w.append(np.absolute(winit_teacher - winit_student))
         for j in tqdm(range(num_trajec), "trajectory"):
+
             input_sequence = input_data[j]
+            teacher_trajectory = teacher_trajectories[j]
 
             loss_j, (meta_grads, grads_winit) = loss_value_grad(
                 input_sequence,
-                oja_coefficients,
-                winit_teacher,
+                teacher_trajectory,
                 student_coefficients,
                 winit_student,
                 activation_function)
@@ -133,5 +140,5 @@ if __name__ == "__main__":
         print()
 
     np.savez("expdata/winit/sameinit", diff_w)
-    print("oja coefficients\n", oja_coefficients)
+    print("teacher coefficients\n", teacher_coefficients)
     print("student coefficients\n", student_coefficients)
