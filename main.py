@@ -48,8 +48,7 @@ def compute_plasticity_coefficients_loss(
     )
 
     loss = compute_loss(student_trajectory, teacher_trajectory)
-    # l1_lambda = 1e-7
-    # loss += l1_lambda * jnp.sum(jnp.absolute(student_coefficients))
+
     return loss
 
 
@@ -84,7 +83,6 @@ if __name__ == "__main__":
     oja_coefficients[1][1][0] = 1
     oja_coefficients[0][2][1] = -1
     student_coefficients = generate_gaussian(key, (3, 3, 3), scale=1e-5)
-    # student_coefficients = jnp.zeros((3,3,3))
 
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(student_coefficients)
