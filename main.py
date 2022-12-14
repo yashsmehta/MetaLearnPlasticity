@@ -1,10 +1,11 @@
-import os
+from jax import jit
+from tqdm import tqdm
 import jax
 import jax.numpy as jnp
-from jax import jit
-import optax
-import time
 import numpy as np
+import optax
+import os
+import time
 
 import network
 
@@ -99,11 +100,11 @@ if __name__ == "__main__":
         compute_plasticity_coefficients_loss,
         argnums=(3, 4))
 
-    for epoch in range(epochs):
+    for epoch in tqdm(range(epochs), "epoch"):
         loss = 0
         start = time.time()
         diff_w.append(np.absolute(winit_teacher - winit_student))
-        for j in range(num_trajec):
+        for j in tqdm(range(num_trajec), "trajectory"):
             input_sequence = input_data[j]
 
             loss_j, (meta_grads, grads_winit) = loss_value_grad(
