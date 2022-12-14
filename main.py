@@ -87,11 +87,16 @@ if __name__ == "__main__":
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(student_coefficients)
 
-    device = jax.lib.xla_bridge.get_backend().platform  # are we running on CPU or GPU?
+    # are we running on CPU or GPU?
+    device = jax.lib.xla_bridge.get_backend().platform
     print("platform: ", device)
     print("layer size: [{}, {}]".format(input_dim, output_dim))
     print()
     del_w = []
+
+    loss_value_grad = jax.value_and_grad(
+        compute_plasticity_coefficients_loss,
+        argnums=(3, 4))
 
     for epoch in range(epochs):
         loss = 0
@@ -100,7 +105,7 @@ if __name__ == "__main__":
         for j in range(num_trajec):
             input_sequence = input_data[j]
 
-            loss_j, (meta_grads, grads_winit) = jax.value_and_grad(compute_plasticity_coefficients_loss, argnums=(3, 4))(
+            loss_j, (meta_grads, grads_winit) = loss_value_grad(
                 input_sequence,
                 oja_coefficients,
                 winit_teacher,

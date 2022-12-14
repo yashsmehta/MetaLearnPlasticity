@@ -5,6 +5,7 @@ from jax import vmap
 
 non_linear = True
 
+
 def generate_trajectory(
         input_sequence,
         initial_weights,
@@ -22,11 +23,13 @@ def generate_trajectory(
         )
     return activity_trajec
 
+
 def forward(inputs, weights):
     activatation = inputs @ weights
     if non_linear:
         activatation = jax.nn.sigmoid(activatation)
     return activatation
+
 
 def volterra_update_weights(inputs, weights, volterra_coefficients):
     activation = forward(inputs, weights)
@@ -40,11 +43,13 @@ def volterra_update_weights(inputs, weights, volterra_coefficients):
             reshape(out_grid, (m * n, 1)),
             reshape(weights, (m * n, 1)),
             volterra_coefficients)
-    
+
     dw = reshape(dw, (m, n))
     assert (
         dw.shape == weights.shape
-    ), "dw and w should be of the same shape to prevent broadcasting while adding"
+    ), \
+        "dw and w should be of the same shape to prevent broadcasting while " \
+        "adding"
     weights += dw
 
     return (weights, activation)
@@ -62,9 +67,10 @@ def get_synapse_tensor(pre, post, weight):
             jnp.array([pre**0, pre**1, pre**2]),
             jnp.array([post**0, post**1, post**2])),
         jnp.array([weight**0, weight**1, weight**2]))
-    
+
     synapse_tensor = jnp.reshape(synapse_tensor, (3, 3, 3))
     return synapse_tensor
+
 
 def mlp_update_weights(self, inputs, weights, plasticity_mlp):
     act = self.forward(inputs, weights)
@@ -86,7 +92,9 @@ def mlp_update_weights(self, inputs, weights, plasticity_mlp):
 
     assert (
         dw.shape == weights.shape
-    ), "dw and w should be of the same shape to prevent broadcasting while adding"
+    ), \
+        "dw and w should be of the same shape to prevent broadcasting while " \
+        "adding"
     weights += dw
 
     return (weights, act)
