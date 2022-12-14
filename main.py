@@ -8,8 +8,6 @@ import numpy as np
 
 import network
 
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
-
 
 def generate_gaussian(key, shape, scale=0.1):
     """
