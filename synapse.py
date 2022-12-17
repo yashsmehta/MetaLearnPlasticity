@@ -25,27 +25,25 @@ def init_volterra(init=None, random_key=None):
                 f(pre, post, weight, parameters) -> delta_weight
     """
 
-    match init:
+    if init == None:
 
-        case None:
+        parameters = np.zeros((3, 3, 3))
 
-            parameters = np.zeros((3, 3, 3))
+    elif init == 'oja':
 
-        case 'oja':
+        parameters = np.zeros((3, 3, 3))
+        parameters[1][1][0] = 1
+        parameters[0][2][1] = -1
 
-            parameters = np.zeros((3, 3, 3))
-            parameters[1][1][0] = 1
-            parameters[0][2][1] = -1
+    elif init == 'random':
 
-        case 'random':
+        assert random_key is not None, \
+            "For random initialization, a random key has to be given"
+        parameters = generate_gaussian(random_key, (3, 3, 3), scale=1e-5)
 
-            assert random_key is not None, \
-                "For random initialization, a random key has to be given"
-            parameters = generate_gaussian(random_key, (3, 3, 3), scale=1e-5)
+    else:
 
-        case _:
-
-            raise RuntimeError(f"init method {init} not implemented")
+        raise RuntimeError(f"init method {init} not implemented")
 
     return jnp.array(parameters), volterra_plasticity_function
 
