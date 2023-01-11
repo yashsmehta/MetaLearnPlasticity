@@ -1,7 +1,7 @@
 data/*
 plastix/*
 playground/*
-plotters/imgs/*
+plotters/*
 **.out
 .ipynb_checkpoints/*
 **.ipynb
