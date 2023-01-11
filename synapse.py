@@ -25,7 +25,7 @@ def init_volterra(init=None, random_key=None):
                 f(pre, post, weight, parameters) -> delta_weight
     """
 
-    if init == None:
+    if init is None:
 
         parameters = np.zeros((3, 3, 3))
 

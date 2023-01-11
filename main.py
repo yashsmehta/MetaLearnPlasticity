@@ -42,9 +42,9 @@ def compute_plasticity_coefficients_loss(
 
 
 if __name__ == "__main__":
-    num_trajec, len_trajec = 50, 50
-    input_dim, output_dim = 100, 100
-    epochs = 3
+    num_trajec, len_trajec = 50, 500 
+    input_dim, output_dim = 200, 200 
+    epochs = 2
 
     # step size of the gradient descent on the initial student weights
     winit_step_size = 0.1
@@ -90,18 +90,22 @@ if __name__ == "__main__":
         argnums=(2, 4))
 
     # precompute all teacher trajectories
+    start = time.time()
     teacher_trajectories = network.generate_trajectories(
         input_data,
         winit_teacher,
         teacher_coefficients,
         teacher_plasticity_function)
 
+    print("teacher trajecties generated in: {}s ".format(
+        round(time.time() - start, 3)))
+
     for epoch in range(epochs):
         loss = 0
         start = time.time()
         diff_w.append(np.absolute(winit_teacher - winit_student))
-        print("Epoch {}:".format(epoch))
-        for j in tqdm(range(num_trajec), "trajectory"):
+        print("Epoch {}:".format(epoch+1))
+        for j in tqdm(range(num_trajec), "#trajectory"):
 
             input_sequence = input_data[j]
             teacher_trajectory = teacher_trajectories[j]
@@ -128,6 +132,6 @@ if __name__ == "__main__":
         print("average loss per trajectory: ", round((loss / num_trajec), 10))
         print()
 
-    np.savez("expdata/winit/sameinit", diff_w)
+    # np.savez("expdata/winit/sameinit", diff_w)
     print("teacher coefficients\n", teacher_coefficients)
     print("student coefficients\n", student_coefficients)
