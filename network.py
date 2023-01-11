@@ -8,23 +8,20 @@ def generate_trajectories(
         input_data,
         initial_weights,
         plasticity_parameters,
-        plasticity_function,
-        activation_function):
+        plasticity_function):
 
-    return vmap(generate_trajectory, in_axes=(0, None, None, None, None))(
+    return vmap(generate_trajectory, in_axes=(0, None, None, None))(
         input_data,
         initial_weights,
         plasticity_parameters,
-        plasticity_function,
-        activation_function)
+        plasticity_function)
 
 
 def generate_trajectory(
         input_sequence,
         initial_weights,
         plasticity_parameters,
-        plasticity_function,
-        activation_function):
+        plasticity_function):
     """
     generate a single trajectory given an input sequence, initial weights
     and the "meta" plasticity coefficients
@@ -35,8 +32,7 @@ def generate_trajectory(
             inputs,
             weights,
             plasticity_parameters,
-            plasticity_function,
-            activation_function)
+            plasticity_function)
 
     final_weights, activity_trajec = jax.lax.scan(
         step, initial_weights, input_sequence
@@ -48,10 +44,9 @@ def network_step(
         inputs,
         weights,
         plasticity_parameters,
-        plasticity_function,
-        activation_function):
+        plasticity_function):
 
-    outputs = activation_function(inputs @ weights)
+    outputs = jax.nn.sigmoid(inputs @ weights)
 
     m, n = weights.shape
     in_grid, out_grid = jnp.meshgrid(

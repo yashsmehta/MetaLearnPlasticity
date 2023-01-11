@@ -1,13 +1,13 @@
 from functools import partial
-from tqdm import tqdm
-from utils import generate_gaussian
 import jax
 import jax.numpy as jnp
 import network
 import numpy as np
 import optax
 import synapse
+from tqdm import tqdm
 import time
+from utils import generate_gaussian
 
 
 def compute_loss(student_trajectory, teacher_trajectory):
@@ -18,14 +18,13 @@ def compute_loss(student_trajectory, teacher_trajectory):
     return jnp.mean(optax.l2_loss(student_trajectory, teacher_trajectory))
 
 
-@partial(jax.jit, static_argnames=['student_plasticity_function', 'activation_function'])
+@partial(jax.jit, static_argnames=['student_plasticity_function'])
 def compute_plasticity_coefficients_loss(
         input_sequence,
         teacher_trajectory,
         student_coefficients,
         student_plasticity_function,
-        winit_student,
-        activation_function):
+        winit_student):
     """
     generates the student trajectory using corresponding coefficients and then
     calls function to compute loss to the given teacher trajectory
@@ -35,8 +34,7 @@ def compute_plasticity_coefficients_loss(
         input_sequence,
         winit_student,
         student_coefficients,
-        student_plasticity_function,
-        activation_function)
+        student_plasticity_function)
 
     loss = compute_loss(student_trajectory, teacher_trajectory)
 
@@ -46,12 +44,10 @@ def compute_plasticity_coefficients_loss(
 if __name__ == "__main__":
     num_trajec, len_trajec = 50, 50
     input_dim, output_dim = 100, 100
-    epochs = 30
+    epochs = 3
 
     # step size of the gradient descent on the initial student weights
     winit_step_size = 0.1
-
-    activation_function = jax.nn.sigmoid
 
     teacher_coefficients, teacher_plasticity_function = \
         synapse.init_volterra('oja')
@@ -98,13 +94,13 @@ if __name__ == "__main__":
         input_data,
         winit_teacher,
         teacher_coefficients,
-        teacher_plasticity_function,
-        activation_function)
+        teacher_plasticity_function)
 
-    for epoch in tqdm(range(epochs), "epoch"):
+    for epoch in range(epochs):
         loss = 0
         start = time.time()
         diff_w.append(np.absolute(winit_teacher - winit_student))
+        print("Epoch {}:".format(epoch))
         for j in tqdm(range(num_trajec), "trajectory"):
 
             input_sequence = input_data[j]
@@ -115,8 +111,7 @@ if __name__ == "__main__":
                 teacher_trajectory,
                 student_coefficients,
                 student_plasticity_function,
-                winit_student,
-                activation_function)
+                winit_student)
 
             loss += loss_j
             winit_student -= winit_step_size * grads_winit
@@ -129,7 +124,7 @@ if __name__ == "__main__":
                 student_coefficients,
                 updates)
 
-        print("epoch {} in {}s".format(epoch, round((time.time() - start), 3)))
+        print("Epoch Time: {}s".format(round((time.time() - start), 3)))
         print("average loss per trajectory: ", round((loss / num_trajec), 10))
         print()
 
