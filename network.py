@@ -53,13 +53,14 @@ def network_step(
         reshape(inputs, (m,)), reshape(outputs, (n,)), indexing="ij"
     )
 
-    dw = vmap(plasticity_function, in_axes=(0, 0, 0, None))(
-            reshape(in_grid, (m * n, 1)),
-            reshape(out_grid, (m * n, 1)),
-            reshape(weights, (m * n, 1)),
+    vfun = vmap(plasticity_function, in_axes=(0, 0, 0, None))
+
+    dw = vmap(vfun, in_axes=(1, 1, 1, None), out_axes=1)(
+            in_grid,
+            out_grid,
+            weights,
             plasticity_parameters)
 
-    dw = reshape(dw, (m, n))
     assert (
         dw.shape == weights.shape
     ), \
