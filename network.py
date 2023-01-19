@@ -7,12 +7,14 @@ from jax import vmap
 def generate_trajectories(
         input_data,
         initial_weights,
+        connectivity_matrix,
         plasticity_parameters,
         plasticity_function):
 
-    return vmap(generate_trajectory, in_axes=(0, None, None, None))(
+    return vmap(generate_trajectory, in_axes=(0, None, None, None, None))(
         input_data,
         initial_weights,
+        connectivity_matrix,
         plasticity_parameters,
         plasticity_function)
 
@@ -20,6 +22,7 @@ def generate_trajectories(
 def generate_trajectory(
         input_sequence,
         initial_weights,
+        connectivity_matrix,
         plasticity_parameters,
         plasticity_function):
     """
@@ -27,10 +30,12 @@ def generate_trajectory(
     and the "meta" plasticity coefficients
     """
 
+    initial_weights = jnp.multiply(initial_weights, connectivity_matrix)
     def step(weights, inputs):
         return network_step(
             inputs,
             weights,
+            connectivity_matrix,
             plasticity_parameters,
             plasticity_function)
 
@@ -43,6 +48,7 @@ def generate_trajectory(
 def network_step(
         inputs,
         weights,
+        connectivity_matrix,
         plasticity_parameters,
         plasticity_function):
 
@@ -60,6 +66,7 @@ def network_step(
             out_grid,
             weights,
             plasticity_parameters)
+    dw = jnp.multiply(dw, connectivity_matrix)
 
     assert (
         dw.shape == weights.shape

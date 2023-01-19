@@ -7,7 +7,7 @@ import optax
 import synapse
 from tqdm import tqdm
 import time
-from utils import generate_gaussian
+from utils import generate_gaussian, generate_random_connectivity
 
 
 def compute_loss(student_trajectory, teacher_trajectory):
@@ -24,7 +24,8 @@ def compute_plasticity_coefficients_loss(
         teacher_trajectory,
         student_coefficients,
         student_plasticity_function,
-        winit_student):
+        winit_student,
+        connectivity_matrix):
     """
     generates the student trajectory using corresponding coefficients and then
     calls function to compute loss to the given teacher trajectory
@@ -33,6 +34,7 @@ def compute_plasticity_coefficients_loss(
     student_trajectory = network.generate_trajectory(
         input_sequence,
         winit_student,
+        connectivity_matrix,
         student_coefficients,
         student_plasticity_function)
 
@@ -42,8 +44,11 @@ def compute_plasticity_coefficients_loss(
 
 
 if __name__ == "__main__":
-    num_trajec, len_trajec = 50, 500 
-    input_dim, output_dim = 200, 200 
+    num_trajec, len_trajec = 50, 500
+    # implement a read connectivity function; get the dims and connectivity
+    input_dim, output_dim = 200, 200
+    key = jax.random.PRNGKey(0)
+    connectivity_matrix = generate_random_connectivity(key, neurons=input_dim, sparsity=0.5)
     epochs = 2
 
     # step size of the gradient descent on the initial student weights
@@ -52,7 +57,6 @@ if __name__ == "__main__":
     teacher_coefficients, teacher_plasticity_function = \
         synapse.init_volterra('oja')
 
-    key = jax.random.PRNGKey(0)
     student_coefficients, student_plasticity_function = \
         synapse.init_volterra('random', key)
 
@@ -94,6 +98,7 @@ if __name__ == "__main__":
     teacher_trajectories = network.generate_trajectories(
         input_data,
         winit_teacher,
+        connectivity_matrix,
         teacher_coefficients,
         teacher_plasticity_function)
 
@@ -115,7 +120,8 @@ if __name__ == "__main__":
                 teacher_trajectory,
                 student_coefficients,
                 student_plasticity_function,
-                winit_student)
+                winit_student,
+                connectivity_matrix)
 
             loss += loss_j
             winit_student -= winit_step_size * grads_winit
