@@ -7,7 +7,8 @@ import optax
 import synapse
 from tqdm import tqdm
 import time
-from utils import generate_gaussian, generate_random_connectivity
+from utils import generate_gaussian, generate_random_connectivity, \
+    generate_KC_input_patterns
 
 
 def compute_loss(student_trajectory, teacher_trajectory):
@@ -44,7 +45,7 @@ def compute_plasticity_coefficients_loss(
 
 
 if __name__ == "__main__":
-    num_trajec, len_trajec = 50, 500
+    num_trajec, len_trajec = 100, 200
     # implement a read connectivity function; get the dims and connectivity
     input_dim, output_dim = 200, 200
     key = jax.random.PRNGKey(0)
@@ -73,11 +74,10 @@ if __name__ == "__main__":
                         scale=1 / (input_dim + output_dim))
     key, key2 = jax.random.split(key)
 
-    # (num_trajectories, length_trajectory, input_dim)
-    input_data = generate_gaussian(
-        key,
-        (num_trajec, len_trajec, input_dim),
-        scale=0.1)
+    input_data = generate_KC_input_patterns(
+        key, 
+        num_odors=10, 
+        dimensions=(num_trajec, len_trajec, input_dim))
 
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(student_coefficients)
