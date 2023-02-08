@@ -2,3 +2,8 @@ jax
 optax
 numpy
 tqdm
+scikit-learn
+pandas
+matplotlib
+psutil
+imageio
