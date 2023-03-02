@@ -7,9 +7,8 @@ import optax
 import synapse
 from tqdm import tqdm
 import time
-from utils import generate_gaussian, generate_random_connectivity, \
-    generate_KC_input_patterns
-
+from utils import generate_gaussian, generate_random_connectivity
+from inputs import sample_inputs
 
 def compute_loss(student_trajectory, teacher_trajectory):
     """
@@ -78,6 +77,10 @@ if __name__ == "__main__":
         key, 
         num_odors=10, 
         dimensions=(num_trajec, len_trajec, input_dim))
+
+    vsample_inputs = vmap(sample_inputs, None, None, 0, 0)
+    vvsample_inputs = vmap(vsample_inputs, None, None, 0, 0)
+    # input_data = vvsample_inputs(mus, sigmas, odor_tensor, key_tensor)
 
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(student_coefficients)

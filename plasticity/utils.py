@@ -11,16 +11,16 @@ def generate_gaussian(key, shape, scale=0.1):
     return scale * jax.random.normal(key, shape)
 
 
-def generate_random_connectivity(key, neurons, sparsity):
+def generate_random_connectivity(key, m, n, sparsity):
     """
-    returns a square connectivity matrix of shape [neurons x neurons]
-    with a specific sparsity of connections
+    returns a random binary connectivity mask of shape [M x N]
+    with a specific connectivity sparseness
     """
 
-    return jax.random.bernoulli(key, p=sparsity, shape=(neurons, neurons))
+    return jax.random.bernoulli(key, p=float(sparsity), shape=(m, n))
 
 
-def generate_KC_input_patterns(key, num_odors, dimensions):
+def old_generate_KC_input_patterns(key, num_odors, dimensions):
 
     """
     each odor is represented by sparse activation of a subset of neurons (10%).
