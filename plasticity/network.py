@@ -29,7 +29,7 @@ def generate_trajectory(
     plasticity_function,
 ):
     """
-    generate a single trajectory given an input sequence, initial weights
+    generate a single activity trajectory given an input sequence, initial weights
     and the "meta" plasticity coefficients
     """
 

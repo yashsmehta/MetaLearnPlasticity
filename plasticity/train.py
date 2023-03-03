@@ -9,9 +9,9 @@ import time
 if __name__ == "__main__":
     num_trajec, len_trajec = 200, 100
     # implement a read connectivity function; get the dims and connectivity
-    input_dim, output_dim = 50, 50
+    input_dim, output_dim = 10, 10 
     key = jax.random.PRNGKey(0)
-    epochs = 2
+    epochs =5 
 
     teacher_coefficients, teacher_plasticity_function = synapse.init_volterra("oja")
 
@@ -34,9 +34,9 @@ if __name__ == "__main__":
     key, key2 = jax.random.split(key)
 
     start = time.time()
-    num_odors = 10
+    num_odors = 20
     mus, sigmas = inputs.generate_input_parameters(
-        key, input_dim, num_odors, firing_fraction=0.1
+        key, input_dim, num_odors, firing_fraction=0.2
     )
 
     odors_tensor = jax.random.choice(
@@ -70,8 +70,7 @@ if __name__ == "__main__":
         teacher_coefficients,
         teacher_plasticity_function,
     )
-
-    print("teacher trajecties generated in: {}s ".format(round(time.time() - start, 3)))
+    print("teacher trajectories shape", teacher_trajectories.shape)
 
     for epoch in range(epochs):
         loss = 0

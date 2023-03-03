@@ -12,7 +12,7 @@ if __name__ == "__main__":
     # implement a read connectivity function; get the dims and connectivity
     input_dim, output_dim = 50, 50
     key = jax.random.PRNGKey(0)
-    epochs = 10 
+    epochs = 10
 
     teacher_coefficients, teacher_plasticity_function = synapse.init_volterra("oja")
 
@@ -70,16 +70,27 @@ if __name__ == "__main__":
     )
 
     print("teacher trajecties generated in: {}s ".format(round(time.time() - start, 3)))
-    expdata = {"loss": np.zeros(epochs),
-            "r2_score": np.zeros(epochs),
-            "epoch": np.arange(epochs)}
+    expdata = {
+        "loss": np.zeros(epochs),
+        "r2_score": np.zeros(epochs),
+        "epoch": np.arange(epochs),
+    }
 
-    print("initial r2 score:",
-        utils.get_r2_score(winit, connectivity_matrix, student_coefficients, student_plasticity_function, teacher_coefficients, teacher_plasticity_function))
+    print(
+        "initial r2 score:",
+        utils.get_r2_score(
+            winit,
+            connectivity_matrix,
+            student_coefficients,
+            student_plasticity_function,
+            teacher_coefficients,
+            teacher_plasticity_function,
+        ),
+    )
 
     for epoch in range(epochs):
         start = time.time()
-        print("Epoch {}:".format(epoch + 1))
+        print("epoch {}:".format(epoch + 1))
 
         for j in tqdm(range(num_trajec), "#trajectory"):
 
@@ -102,10 +113,17 @@ if __name__ == "__main__":
 
             student_coefficients = optax.apply_updates(student_coefficients, updates)
 
-        expdata["r2_score"][epoch] = utils.get_r2_score(winit, connectivity_matrix, student_coefficients, student_plasticity_function, teacher_coefficients, teacher_plasticity_function)
+        expdata["r2_score"][epoch] = utils.get_r2_score(
+            winit,
+            connectivity_matrix,
+            student_coefficients,
+            student_plasticity_function,
+            teacher_coefficients,
+            teacher_plasticity_function,
+        )
 
         print("epoch time: {}s".format(round((time.time() - start), 1)))
-        print("Average LOSS per trajectory: ", (expdata["loss"][epoch] / num_trajec))
+        print("average LOSS per trajectory: ", (expdata["loss"][epoch] / num_trajec))
         print("R2 score: ", expdata["r2_score"][epoch])
         print()
 

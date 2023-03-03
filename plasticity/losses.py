@@ -34,7 +34,5 @@ def mse_plasticity_coefficients(
         student_coefficients,
         student_plasticity_function,
     )
-
     loss = compute_mse(student_trajectory, teacher_trajectory)
-
     return loss
