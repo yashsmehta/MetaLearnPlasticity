@@ -2,13 +2,19 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
+
 def generate_input_parameters(key, input_dim, num_odors, firing_fraction):
     """
     return the mus and sigmas tensors, with some mean, and variance
     """
     mus = np.zeros((num_odors, input_dim))
     mus += 1
-    mask = jax.random.choice(key, np.array([0, 1]), shape=(num_odors, input_dim), p=np.array([1-firing_fraction, firing_fraction]))
+    mask = jax.random.choice(
+        key,
+        np.array([0, 1]),
+        shape=(num_odors, input_dim),
+        p=np.array([1 - firing_fraction, firing_fraction]),
+    )
     mus = np.multiply(mus, mask)
     diag_mask = np.ma.diag(np.ones(input_dim))
 
@@ -22,6 +28,7 @@ def generate_input_parameters(key, input_dim, num_odors, firing_fraction):
         sigmas[i] = np.multiply(sigmas[i], diag_mask)
 
     return jnp.array(mus), jnp.array(sigmas)
+
 
 def sample_inputs(mus, sigmas, k, random_key):
 

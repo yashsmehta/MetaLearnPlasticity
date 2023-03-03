@@ -1,4 +1,3 @@
-
 from functools import partial
 import jax
 from jax import vmap
@@ -12,6 +11,7 @@ import optax
 from tqdm import tqdm
 import time
 
+
 def compute_loss(student_trajectory, teacher_trajectory):
     """
     takes a single student and teacher trajectory and return the MSE loss
@@ -20,14 +20,15 @@ def compute_loss(student_trajectory, teacher_trajectory):
     return jnp.mean(optax.l2_loss(student_trajectory, teacher_trajectory))
 
 
-@partial(jax.jit, static_argnames=['student_plasticity_function'])
+@partial(jax.jit, static_argnames=["student_plasticity_function"])
 def compute_plasticity_coefficients_loss(
-        input_sequence,
-        teacher_trajectory,
-        student_coefficients,
-        student_plasticity_function,
-        winit_student,
-        connectivity_matrix):
+    input_sequence,
+    teacher_trajectory,
+    student_coefficients,
+    student_plasticity_function,
+    winit_student,
+    connectivity_matrix,
+):
     """
     generates the student trajectory using corresponding coefficients and then
     calls function to compute loss to the given teacher trajectory
@@ -38,45 +39,51 @@ def compute_plasticity_coefficients_loss(
         winit_student,
         connectivity_matrix,
         student_coefficients,
-        student_plasticity_function)
+        student_plasticity_function,
+    )
 
     loss = compute_loss(student_trajectory, teacher_trajectory)
 
     return loss
 
+
 if __name__ == "__main__":
-    num_trajec, len_trajec = 2, 5
+    num_trajec, len_trajec = 200, 100
     # implement a read connectivity function; get the dims and connectivity
-    input_dim, output_dim = 3, 6 
+    input_dim, output_dim = 50, 50
     key = jax.random.PRNGKey(0)
     epochs = 2
 
-    teacher_coefficients, teacher_plasticity_function = \
-        synapse.init_volterra('oja')
+    teacher_coefficients, teacher_plasticity_function = synapse.init_volterra("oja")
 
-    student_coefficients, student_plasticity_function = \
-        synapse.init_volterra('random', key)
+    student_coefficients, student_plasticity_function = synapse.init_volterra(
+        "random", key
+    )
 
     key, key2 = jax.random.split(key)
 
-    connectivity_matrix = generate_random_connectivity(key2, input_dim, output_dim, sparsity=1)
+    connectivity_matrix = generate_random_connectivity(
+        key2, input_dim, output_dim, sparsity=1
+    )
     winit_teacher = generate_gaussian(
-                        key,
-                        (input_dim, output_dim),
-                        scale=1 / (input_dim + output_dim))
+        key, (input_dim, output_dim), scale=1 / (input_dim + output_dim)
+    )
 
     winit_student = generate_gaussian(
-                        key,
-                        (input_dim, output_dim),
-                        scale=1 / (input_dim + output_dim))
+        key, (input_dim, output_dim), scale=1 / (input_dim + output_dim)
+    )
     key, key2 = jax.random.split(key)
 
     start = time.time()
     num_odors = 10
-    mus, sigmas = generate_input_parameters(key, input_dim, num_odors, firing_fraction=0.1)
+    mus, sigmas = generate_input_parameters(
+        key, input_dim, num_odors, firing_fraction=0.1
+    )
 
-    odors_tensor = jax.random.choice(key2, jnp.arange(num_odors), shape=(num_trajec, len_trajec)) 
-    keys_tensor = jax.random.split(key, num=(num_trajec*len_trajec))
+    odors_tensor = jax.random.choice(
+        key2, jnp.arange(num_odors), shape=(num_trajec, len_trajec)
+    )
+    keys_tensor = jax.random.split(key, num=(num_trajec * len_trajec))
     keys_tensor = keys_tensor.reshape(num_trajec, len_trajec, 2)
 
     vsample_inputs = vmap(sample_inputs, in_axes=(None, None, 0, 0))
@@ -94,8 +101,8 @@ if __name__ == "__main__":
     diff_w = []
 
     loss_value_grad = jax.value_and_grad(
-        compute_plasticity_coefficients_loss,
-        argnums=2)
+        compute_plasticity_coefficients_loss, argnums=2
+    )
 
     # precompute all teacher trajectories
     start = time.time()
@@ -104,16 +111,16 @@ if __name__ == "__main__":
         winit_teacher,
         connectivity_matrix,
         teacher_coefficients,
-        teacher_plasticity_function)
+        teacher_plasticity_function,
+    )
 
-    print("teacher trajecties generated in: {}s ".format(
-        round(time.time() - start, 3)))
+    print("teacher trajecties generated in: {}s ".format(round(time.time() - start, 3)))
 
     for epoch in range(epochs):
         loss = 0
         start = time.time()
         diff_w.append(np.absolute(winit_teacher - winit_student))
-        print("Epoch {}:".format(epoch+1))
+        print("Epoch {}:".format(epoch + 1))
         for j in tqdm(range(num_trajec), "#trajectory"):
 
             input_sequence = input_data[j]
@@ -125,17 +132,15 @@ if __name__ == "__main__":
                 student_coefficients,
                 student_plasticity_function,
                 winit_student,
-                connectivity_matrix)
+                connectivity_matrix,
+            )
 
             loss += loss_j
             updates, opt_state = optimizer.update(
-                meta_grads,
-                opt_state,
-                student_coefficients)
+                meta_grads, opt_state, student_coefficients
+            )
 
-            student_coefficients = optax.apply_updates(
-                student_coefficients,
-                updates)
+            student_coefficients = optax.apply_updates(student_coefficients, updates)
 
         print("Epoch Time: {}s".format(round((time.time() - start), 3)))
         print("average loss per trajectory: ", round((loss / num_trajec), 10))

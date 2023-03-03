@@ -29,16 +29,17 @@ def init_volterra(init=None, random_key=None):
 
         parameters = np.zeros((3, 3, 3))
 
-    elif init == 'oja':
+    elif init == "oja":
 
         parameters = np.zeros((3, 3, 3))
         parameters[1][1][0] = 1
         parameters[0][2][1] = -1
 
-    elif init == 'random':
+    elif init == "random":
 
-        assert random_key is not None, \
-            "For random initialization, a random key has to be given"
+        assert (
+            random_key is not None
+        ), "For random initialization, a random key has to be given"
         parameters = generate_gaussian(random_key, (3, 3, 3), scale=1e-5)
 
     else:
@@ -52,8 +53,10 @@ def volterra_synapse_tensor(pre, post, weight):
     synapse_tensor = jnp.outer(
         jnp.outer(
             jnp.array([pre**0, pre**1, pre**2]),
-            jnp.array([post**0, post**1, post**2])),
-        jnp.array([weight**0, weight**1, weight**2]))
+            jnp.array([post**0, post**1, post**2]),
+        ),
+        jnp.array([weight**0, weight**1, weight**2]),
+    )
 
     synapse_tensor = jnp.reshape(synapse_tensor, (3, 3, 3))
     return synapse_tensor

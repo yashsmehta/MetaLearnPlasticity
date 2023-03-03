@@ -1,16 +1,10 @@
 import numpy as np
 import networkx as nx
-import pandas as pd
-import plastix as px
 import time
-
-import neuprint
+import plastix as px
 from neuprint import Client
 from neuprint import NeuronCriteria as NC
-from neuprint import fetch_neurons
 from neuprint import fetch_adjacencies
-from neuprint import merge_neuron_properties
-from neuprint import fetch_roi_hierarchy
 
 
 def main():

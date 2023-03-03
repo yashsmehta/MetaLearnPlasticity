@@ -1,16 +1,11 @@
 __major__ = 0
 __minor__ = 1
 __patch__ = 0
-__tag__ = ''
-__version__ = '{}.{}.{}{}'.format(
-    __major__,
-    __minor__,
-    __patch__,
-    __tag__).strip('.')
+__tag__ = ""
+__version__ = "{}.{}.{}{}".format(__major__, __minor__, __patch__, __tag__).strip(".")
 
 
 class _Version(object):
-
     def major(self):
         return __major__
 
