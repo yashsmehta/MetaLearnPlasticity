@@ -47,4 +47,5 @@ def generate_sparse_inputs(mus, sigmas, odors_tensor, keys_tensor):
     vsample_inputs = vmap(sample_inputs, in_axes=(None, None, 0, 0))
     vvsample_inputs = vmap(vsample_inputs, in_axes=(None, None, 1, 1))
     input_data = vvsample_inputs(mus, sigmas, odors_tensor, keys_tensor)
+    input_data = jnp.swapaxes(input_data, 0, 1)
     return input_data
