@@ -2,7 +2,7 @@
 import jax.numpy as jnp
 import jax
 from jax import vmap
-from plasticity import synapse, utils, inputs, network, main
+from plasticity import losses, synapse, utils, inputs, network
 import unittest
 
 
@@ -49,7 +49,7 @@ class TestZeroGradient(unittest.TestCase):
             teacher_plasticity_function,
         )
         loss_value_grad = jax.value_and_grad(
-            main.compute_plasticity_coefficients_loss, argnums=2
+            losses.mse_plasticity_coefficients, argnums=2
         )
 
         loss, meta_grads = loss_value_grad(

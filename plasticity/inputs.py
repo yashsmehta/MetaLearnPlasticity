@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as jnp
+from jax import vmap
 import numpy as np
 
 
@@ -40,3 +41,10 @@ def sample_inputs(mus, sigmas, k, random_key):
     x = x + mus[k]
 
     return x
+
+
+def generate_sparse_inputs(mus, sigmas, odors_tensor, keys_tensor):
+    vsample_inputs = vmap(sample_inputs, in_axes=(None, None, 0, 0))
+    vvsample_inputs = vmap(vsample_inputs, in_axes=(None, None, 1, 1))
+    input_data = vvsample_inputs(mus, sigmas, odors_tensor, keys_tensor)
+    return input_data

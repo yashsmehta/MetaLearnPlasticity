@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 import jax
-import plasticity
+from plasticity import inputs
 import unittest
 
 
@@ -35,5 +35,5 @@ class TestInputs(unittest.TestCase):
         random_key = jax.random.PRNGKey(42)
         for i in range(10):
             random_key, _ = jax.random.split(random_key)
-            x = plasticity.sample_inputs(mus, sigmas, i % 3, random_key)
+            x = inputs.sample_inputs(mus, sigmas, i % 3, random_key)
             print(f"k={i%3}, x={x}")
