@@ -27,7 +27,7 @@ def mse_plasticity_coefficients(
     calls function to compute loss to the given teacher trajectory
     """
 
-    student_trajectory = network.generate_trajectory(
+    (_, _, student_trajectory), _ = network.generate_trajectory(
         input_sequence,
         winit_student,
         connectivity_matrix,
