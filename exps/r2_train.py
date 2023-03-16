@@ -4,18 +4,18 @@ import optax
 from tqdm import tqdm
 import time
 import numpy as np
+import pandas as pd
 from plasticity import inputs, utils, synapse, network, losses
 
 
 if __name__ == "__main__":
-    num_trajec, len_trajec = 100, 200
+    num_trajec, len_trajec = 50, 50
     # implement a read connectivity function; get the dims and connectivity
-    input_dim, output_dim = 50, 50
+    input_dim, output_dim = 50, 10
     key = jax.random.PRNGKey(0)
-    epochs = 10
+    epochs = 5
 
     teacher_coefficients, teacher_plasticity_function = synapse.init_volterra("oja")
-
     student_coefficients, student_plasticity_function = synapse.init_volterra(
         "random", key
     )
@@ -32,9 +32,9 @@ if __name__ == "__main__":
     key, key2 = jax.random.split(key)
 
     start = time.time()
-    num_odors = 10
+    num_odors = 100
     mus, sigmas = inputs.generate_input_parameters(
-        key, input_dim, num_odors, firing_fraction=0.2
+        key, input_dim, num_odors, firing_fraction=0.1
     )
 
     odors_tensor = jax.random.choice(
@@ -61,7 +61,11 @@ if __name__ == "__main__":
 
     # precompute all teacher trajectories
     start = time.time()
-    teacher_trajectories = network.generate_trajectories(
+    (
+        dw_trajectories,
+        weight_trajectories,
+        teacher_trajectories,
+    ), final_weights = network.generate_trajectories(
         input_data,
         winit,
         connectivity_matrix,
@@ -69,7 +73,10 @@ if __name__ == "__main__":
         teacher_plasticity_function,
     )
 
-    print("teacher trajecties generated in: {}s ".format(round(time.time() - start, 3)))
+    print("generated teacher trajectories...")
+    # np.savez("expdata/sparse_inputs/teacher_trajectories_random", teacher_trajectories)
+    # np.savez("expdata/sparse_inputs/final_weights_random", final_weights)
+
     expdata = {
         "loss": np.zeros(epochs),
         "r2_score": np.zeros(epochs),
@@ -88,6 +95,7 @@ if __name__ == "__main__":
         ),
     )
 
+    logger = []
     for epoch in range(epochs):
         start = time.time()
         print("epoch {}:".format(epoch + 1))
@@ -113,7 +121,8 @@ if __name__ == "__main__":
 
             student_coefficients = optax.apply_updates(student_coefficients, updates)
 
-        expdata["r2_score"][epoch] = utils.get_r2_score(
+        logger.append(student_coefficients)
+        expdata["r2_score"][epoch], r2_weight = utils.get_r2_score(
             winit,
             connectivity_matrix,
             student_coefficients,
@@ -124,10 +133,9 @@ if __name__ == "__main__":
 
         print("epoch time: {}s".format(round((time.time() - start), 1)))
         print("average LOSS per trajectory: ", (expdata["loss"][epoch] / num_trajec))
-        print("R2 score: ", expdata["r2_score"][epoch])
+        print("Activities R2 score: ", expdata["r2_score"][epoch])
+        print("Weights R2 score: ", r2_weight)
         print()
 
-    # np.savez("expdata/winit/sameinit", diff_w)
-    print("teacher coefficients\n", teacher_coefficients)
-    print("student coefficients\n", student_coefficients)
-    print()
+    # np.savez("expdata/sparse_inputs/student_coeffs", np.array(logger))
+    # pd.DataFrame(expdata).to_csv("expdata/sparse_inputs/expdf.csv", index=True)
