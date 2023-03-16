@@ -35,12 +35,22 @@ def init_volterra(init=None, random_key=None):
         parameters[1][1][0] = 1
         parameters[0][2][1] = -1
 
+    elif init == "hebbian":
+
+        parameters = np.zeros((3, 3, 3))
+        parameters[1][1][0] = 1
+
+    elif init == "anti-hebbian":
+
+        parameters = np.zeros((3, 3, 3))
+        parameters[1][1][0] = -1
+
     elif init == "random":
 
         assert (
             random_key is not None
         ), "For random initialization, a random key has to be given"
-        parameters = generate_gaussian(random_key, (3, 3, 3), scale=1e-5)
+        parameters = generate_gaussian(random_key, (3, 3, 3), scale=1e-3)
 
     else:
 
