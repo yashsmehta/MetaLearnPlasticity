@@ -35,4 +35,6 @@ def mse_plasticity_coefficients(
         student_plasticity_function,
     )
     loss = compute_mse(student_trajectory, teacher_trajectory)
+    # add a L1 regularization term to the loss
+    # loss += 1e-6 * jnp.sum(jnp.abs(student_coefficients))
     return loss
