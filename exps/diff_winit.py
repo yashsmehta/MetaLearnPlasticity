@@ -9,28 +9,37 @@ from plasticity import inputs, utils, synapse, network, losses
 
 
 if __name__ == "__main__":
-    num_trajec, len_trajec = 50, 50
-    # implement a read connectivity function; get the dims and connectivity
-    input_dim, output_dim = 50, 10
+    num_trajec, len_trajec = 200, 5
+    input_dim, output_dim = 100, 3
     key = jax.random.PRNGKey(0)
-    epochs = 5
+    epochs = 50 
 
-    teacher_coefficients, teacher_plasticity_function = synapse.init_volterra("oja")
+    # teacher_coefficients, teacher_plasticity_function = synapse.init_volterra("oja")
+    teacher_coefficients, teacher_plasticity_function = synapse.init_volterra(
+        "custom")
+    key,_ = jax.random.split(key)
     student_coefficients, student_plasticity_function = synapse.init_volterra(
         "random", key
     )
 
-    key, key2 = jax.random.split(key)
-
+    key,_ = jax.random.split(key)
     connectivity_matrix = utils.generate_random_connectivity(
-        key2, input_dim, output_dim, sparsity=1
+        key, input_dim, output_dim, sparsity=0.5
     )
-    winit = utils.generate_gaussian(
-        key, (input_dim, output_dim), scale=1 / (input_dim + output_dim)
+
+    key,key2 = jax.random.split(key)
+    winit_teacher = utils.generate_gaussian(
+        key, (input_dim, output_dim), scale=1 / input_dim
+    )
+    winit_student = utils.generate_gaussian(
+        key2, (input_dim, output_dim), scale=10 / input_dim
+    )
+    key, key2 = jax.random.split(key)
+    winit_test = utils.generate_gaussian(
+        key, (input_dim, output_dim), scale=1 / input_dim
     )
 
     key, key2 = jax.random.split(key)
-
     start = time.time()
     num_odors = 100
     mus, sigmas = inputs.generate_input_parameters(
@@ -58,6 +67,12 @@ if __name__ == "__main__":
     loss_value_and_grad = jax.value_and_grad(
         losses.mse_plasticity_coefficients, argnums=2
     )
+    
+    # add offset to second column of teacher weights
+    # w_offset = np.zeros((input_dim, output_dim))
+    # w_offset[:, 1:] += 0.1
+    # w_offset[:, 2] += -0.1 
+    # winit_student += w_offset
 
     # precompute all teacher trajectories
     start = time.time()
@@ -67,26 +82,29 @@ if __name__ == "__main__":
         teacher_trajectories,
     ), final_weights = network.generate_trajectories(
         input_data,
-        winit,
+        winit_teacher,
         connectivity_matrix,
         teacher_coefficients,
         teacher_plasticity_function,
     )
 
     print("generated teacher trajectories...")
-    # np.savez("expdata/sparse_inputs/teacher_trajectories_random", teacher_trajectories)
-    # np.savez("expdata/sparse_inputs/final_weights_random", final_weights)
 
+    # np.savez("expdata/sparse_inputs/activity_trajectories_oja", teacher_trajectories)
+    # np.savez("expdata/sparse_inputs/weight_trajectories_oja", weight_trajectories)
+    # np.savez("expdata/sparse_inputs/dw_trajectories_oja", dw_trajectories)
+    # np.savez("expdata/sparse_inputs/input_data_oja", input_data)
     expdata = {
         "loss": np.zeros(epochs),
         "r2_score": np.zeros(epochs),
         "epoch": np.arange(epochs),
     }
+    # exit()
 
     print(
         "initial r2 score:",
         utils.get_r2_score(
-            winit,
+            winit_test,
             connectivity_matrix,
             student_coefficients,
             student_plasticity_function,
@@ -110,7 +128,7 @@ if __name__ == "__main__":
                 teacher_trajectory,
                 student_coefficients,
                 student_plasticity_function,
-                winit,
+                winit_student,
                 connectivity_matrix,
             )
 
@@ -123,7 +141,7 @@ if __name__ == "__main__":
 
         logger.append(student_coefficients)
         expdata["r2_score"][epoch], r2_weight = utils.get_r2_score(
-            winit,
+            winit_test,
             connectivity_matrix,
             student_coefficients,
             student_plasticity_function,
@@ -136,6 +154,9 @@ if __name__ == "__main__":
         print("Activities R2 score: ", expdata["r2_score"][epoch])
         print("Weights R2 score: ", r2_weight)
         print()
+    
+    print("teacher coefficients: ", teacher_coefficients)
+    print("student coefficients: ", student_coefficients)
 
     # np.savez("expdata/sparse_inputs/student_coeffs", np.array(logger))
     # pd.DataFrame(expdata).to_csv("expdata/sparse_inputs/expdf.csv", index=True)
