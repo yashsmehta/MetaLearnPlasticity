@@ -15,7 +15,9 @@ def compute_mse(student_trajectory, teacher_trajectory):
 
 @partial(jax.jit, static_argnames=["student_plasticity_function"])
 def mse_plasticity_coefficients(
+    keys_tensor,
     input_sequence,
+    reward_probabilities,
     teacher_trajectory,
     student_coefficients,
     student_plasticity_function,
@@ -28,13 +30,15 @@ def mse_plasticity_coefficients(
     """
 
     (_, _, student_trajectory), _ = network.generate_trajectory(
+        keys_tensor,
         input_sequence,
-        winit_student,
-        connectivity_matrix,
+        reward_probabilities,
         student_coefficients,
         student_plasticity_function,
+        winit_student,
+        connectivity_matrix,
     )
     loss = compute_mse(student_trajectory, teacher_trajectory)
     # add a L1 regularization term to the loss
-    # loss += 1e-6 * jnp.sum(jnp.abs(student_coefficients))
+    # loss += 5e-6 * jnp.sum(jnp.abs(student_coefficients))
     return loss

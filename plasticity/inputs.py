@@ -42,6 +42,21 @@ def sample_inputs(mus, sigmas, k, random_key):
 
     return x
 
+def get_reward_prob_tensor(odors_tensor, reward_ratios_seq):
+    """
+    TODO: make efficient by changing for-loop to vmap
+    """
+    num_trajec, len_trajec = odors_tensor.shape
+    block_interval_length = len_trajec // len(reward_ratios_seq)
+    reward_prob_tensor = np.zeros((num_trajec, len_trajec))
+
+    for trial in range(num_trajec):
+        for time_step in range(len_trajec):
+            block = time_step // block_interval_length
+            r1, r2 = reward_ratios_seq[block]
+            reward_prob_tensor[trial, time_step] = r1 if odors_tensor[trial, time_step] == 0 else r2
+
+    return reward_prob_tensor
 
 def generate_sparse_inputs(mus, sigmas, odors_tensor, keys_tensor):
     vsample_inputs = vmap(sample_inputs, in_axes=(None, None, 0, 0))

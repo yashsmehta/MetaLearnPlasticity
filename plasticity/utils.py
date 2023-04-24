@@ -2,7 +2,9 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import sklearn.metrics
-from plasticity import network, inputs
+from plasticity import inputs
+# import plasticity.networkv2 as network
+import plasticity.network as network
 
 
 def generate_gaussian(key, shape, scale=0.1):
@@ -33,11 +35,13 @@ def get_r2_score(
 ):
     """
     returns the r2 scores calculated on the weight and activity trajectories
+    for now, only coded for num_odors = 2
     """
     key = jax.random.PRNGKey(66)
-    num_trajec_test, len_trajec = 10, 100
-    num_odors = 10
-    input_dim = winit.shape[0]
+    num_trajec_test, len_trajec = 10, 60
+    reward_ratios_seq = ((0.5, 0.5), (0.2, 0.8), (0.4, 0.6))
+    num_odors = 2
+    input_dim = connectivity_matrix.shape[0]
     mus, sigmas = inputs.generate_input_parameters(
         key, input_dim, num_odors, firing_fraction=0.1
     )
@@ -48,6 +52,7 @@ def get_r2_score(
     keys_tensor = jax.random.split(key, num=(num_trajec_test * len_trajec))
     keys_tensor = keys_tensor.reshape(num_trajec_test, len_trajec, 2)
     input_data = inputs.generate_sparse_inputs(mus, sigmas, odors_tensor, keys_tensor)
+    reward_prob_tensor = inputs.get_reward_prob_tensor(odors_tensor, reward_ratios_seq)
     # note: for calculating r2 score, we want to calculate it with the weight
     # trajectories and not activity trajectories
     (
@@ -55,11 +60,13 @@ def get_r2_score(
         weight_teacher_trajectories,
         activity_teacher_trajectories,
     ), _ = network.generate_trajectories(
+        keys_tensor,
         input_data,
-        winit,
-        connectivity_matrix,
+        reward_prob_tensor,
         teacher_coefficients,
         teacher_plasticity_function,
+        winit,
+        connectivity_matrix,
     )
 
     (
@@ -67,11 +74,13 @@ def get_r2_score(
         weight_student_trajectories,
         activity_student_trajectories,
     ), _ = network.generate_trajectories(
+        keys_tensor,
         input_data,
-        winit,
-        connectivity_matrix,
+        reward_prob_tensor,
         student_coefficients,
         student_plasticity_function,
+        winit,
+        connectivity_matrix,
     )
     r2_score_weight, r2_score_activity = np.zeros(num_trajec_test), np.zeros(
         num_trajec_test
@@ -111,3 +120,4 @@ def old_generate_KC_input_patterns(key, num_odors, dimensions):
     mask = jax.random.choice(key2, odors_encoding, shape=(num_trajec, len_trajec))
 
     return trajectories_activity * mask
+    
