@@ -12,3 +12,4 @@ expdata/*
 playground/*
 plotters/*
 *.out
+.ipynb_checkpoints
