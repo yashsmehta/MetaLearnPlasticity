@@ -1,32 +1,18 @@
 from setuptools import setup
-
-name = 'plasticity'
-here = os.path.abspath(os.path.dirname(__file__))
-version_info = {}
-with open(os.path.join(here, name, 'version_info.py')) as fp:
-    exec(fp.read(), version_info)
-version = version_info['_version']
+import pathlib
 
 setup(
-        name=name,
-        version=str(version),
+        name='plasticity',
+        version='0.1',
         description='Meta-Learning Plasticity',
         url='https://github.com/yashsmehta/plasticity',
         author='Yash Mehta',
-        author_email='mehtay@janelia.hhmi.org',
+        author_email='yashsmehta95@gmail.com',
         license='MIT',
         packages=[
-            'plasticity'
+            'plasticity',
+            'plasticity.behavior',
+            'plasticity.neural_activity',
         ],
-        install_requires=[
-            'imageio',
-            'jax',
-            'matplotlib',
-            'numpy',
-            'optax',
-            'pandas',
-            'psutil',
-            'scikit-learn',
-            'tqdm'
-        ]
+        install_requires=pathlib.Path('requirements.txt').read_text().splitlines(),
 )

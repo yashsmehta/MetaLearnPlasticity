@@ -3,6 +3,26 @@ import jax.numpy as jnp
 import numpy as np
 
 
+def volterra_synapse_tensor(x, y, z):
+
+    synapse_tensor = jnp.outer(
+        jnp.outer(
+            jnp.array([x**0, x**1, x**2]),
+            jnp.array([y**0, y**1, y**2]),
+        ),
+            jnp.array([z**0, z**1, z**2]),
+    )
+
+    synapse_tensor = jnp.reshape(synapse_tensor, (3, 3, 3))
+    return synapse_tensor
+
+
+def volterra_plasticity_function(x, y, z, volterra_coefficients):
+    synapse_tensor = volterra_synapse_tensor(x, y, z)
+    dw = jnp.sum(jnp.multiply(volterra_coefficients, synapse_tensor))
+    return dw
+
+
 def init_zeros():
     return np.zeros((3, 3, 3))
 
@@ -29,7 +49,7 @@ def init_oja(parameters):
     parameters[0][2][1] = -1
     return parameters
 
-def init_dopamine_volterra(init=None, random_key=None):
+def init_reward_volterra(init=None, random_key=None):
 
     init_functions = {
         "zeros": init_zeros,
@@ -60,25 +80,3 @@ def init_volterra(init=None, random_key=None):
     parameters = init_functions[init]()
     return jnp.array(parameters), volterra_plasticity_function
 
-
-def volterra_synapse_tensor(pre, reward_term, weight):
-    """
-    Note: this is the updated function incorporating the reward term,
-    instad of 'y' (post synaptic activity)
-    """
-    synapse_tensor = jnp.outer(
-        jnp.outer(
-            jnp.array([pre**0, pre**1, pre**2]),
-            jnp.array([reward_term**0, reward_term**1, reward_term**2]),
-        ),
-            jnp.array([weight**0, weight**1, weight**2]),
-    )
-
-    synapse_tensor = jnp.reshape(synapse_tensor, (3, 3, 3))
-    return synapse_tensor
-
-
-def volterra_plasticity_function(pre, reward_term, weight, volterra_coefficients):
-    synapse_tensor = volterra_synapse_tensor(pre, reward_term, weight)
-    dw = jnp.sum(jnp.multiply(volterra_coefficients, synapse_tensor))
-    return dw

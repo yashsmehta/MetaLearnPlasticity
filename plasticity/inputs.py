@@ -9,7 +9,7 @@ def generate_input_parameters(key, input_dim, num_odors, firing_fraction):
     return the mus and sigmas tensors, with some mean, and variance
     """
     mus = np.zeros((num_odors, input_dim))
-    mus += 0.3
+    mus += 1
     mask = jax.random.choice(
         key,
         np.array([0, 1]),
@@ -20,8 +20,8 @@ def generate_input_parameters(key, input_dim, num_odors, firing_fraction):
     diag_mask = np.ma.diag(np.ones(input_dim))
 
     sigmas = np.zeros((num_odors, input_dim, input_dim))
-    firing_covariance = 0.03
-    base_noise = 0.03
+    firing_covariance = 0.1
+    base_noise = 0.1
     sigmas += base_noise
 
     for i in range(num_odors):
@@ -29,7 +29,6 @@ def generate_input_parameters(key, input_dim, num_odors, firing_fraction):
         sigmas[i] = np.multiply(sigmas[i], diag_mask)
 
     return jnp.array(mus), jnp.array(sigmas)
-
 
 def sample_inputs(mus, sigmas, k, random_key):
 

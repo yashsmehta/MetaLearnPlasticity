@@ -9,30 +9,35 @@ from plasticity import inputs, utils, synapse, network, losses
 
 
 if __name__ == "__main__":
-    num_trajec, len_trajec = 2, 100
-    input_dim, output_dim = 5, 2 
+    num_trajec, len_trajec = 5, 50
+    input_dim, output_dim = 20, 5
     key = jax.random.PRNGKey(0)
-    epochs = 10
-
-    teacher_coefficients, teacher_plasticity_function = synapse.init_volterra("oja", key)
+    epochs = 51
+    teacher_plasticity = "custom"
+    teacher_coefficients, teacher_plasticity_function = synapse.init_volterra(teacher_plasticity, key)
+    key,_ = jax.random.split(key)
     student_coefficients, student_plasticity_function = synapse.init_volterra(
-        "oja", key
+        "random", key
     )
 
-    key, key2 = jax.random.split(key)
-
+    key,_ = jax.random.split(key)
     connectivity_matrix = utils.generate_random_connectivity(
-        key2, input_dim, output_dim, sparsity=0.5
+        key, input_dim, output_dim, sparsity=0.5
     )
-    winit_true = utils.generate_gaussian(
+
+    key,key2 = jax.random.split(key)
+    winit_teacher = utils.generate_gaussian(
         key, (input_dim, output_dim), scale=10 / input_dim
     )
-    winit = utils.generate_gaussian(
-        key, (input_dim, output_dim), scale=1 / input_dim
+    winit_student = utils.generate_gaussian(
+        key, (input_dim, output_dim), scale=10 / input_dim
+    )
+    key, key2 = jax.random.split(key)
+    winit_test = utils.generate_gaussian(
+        key, (input_dim, output_dim), scale=10 / input_dim
     )
 
     key, key2 = jax.random.split(key)
-
     start = time.time()
     num_odors = 100
     mus, sigmas = inputs.generate_input_parameters(
@@ -48,8 +53,7 @@ if __name__ == "__main__":
     input_data = inputs.generate_sparse_inputs(mus, sigmas, odors_tensor, keys_tensor)
 
     optimizer = optax.adam(learning_rate=1e-3)
-    params = (student_coefficients, winit)
-    opt_state = optimizer.init(params)
+    opt_state = optimizer.init(student_coefficients)
 
     # are we running on CPU or GPU?
     device = jax.lib.xla_bridge.get_backend().platform
@@ -59,9 +63,9 @@ if __name__ == "__main__":
     diff_w = []
 
     loss_value_and_grad = jax.value_and_grad(
-        losses.mse_plasticity_coefficients, argnums=(2, 4)
+        losses.mse_plasticity_coefficients, argnums=2
     )
-
+    
     # precompute all teacher trajectories
     start = time.time()
     (
@@ -70,13 +74,19 @@ if __name__ == "__main__":
         teacher_trajectories,
     ), final_weights = network.generate_trajectories(
         input_data,
-        winit_true,
+        winit_teacher,
         connectivity_matrix,
         teacher_coefficients,
         teacher_plasticity_function,
     )
 
     print("generated teacher trajectories...")
+    np.savez("expdata/sparse_inputs/activity_trajectories_{}".format(teacher_plasticity), teacher_trajectories)
+    np.savez("expdata/sparse_inputs/winit_{}".format(teacher_plasticity), winit_teacher)
+    np.savez("expdata/sparse_inputs/weight_trajectories_{}".format(teacher_plasticity), weight_trajectories)
+    np.savez("expdata/sparse_inputs/dw_trajectories_{}".format(teacher_plasticity), dw_trajectories)
+    np.savez("expdata/sparse_inputs/input_data_{}".format(teacher_plasticity), input_data)
+    exit()
 
     expdata = {
         "loss": np.zeros(epochs),
@@ -87,7 +97,7 @@ if __name__ == "__main__":
     print(
         "initial r2 score:",
         utils.get_r2_score(
-            winit_true,
+            winit_test,
             connectivity_matrix,
             student_coefficients,
             student_plasticity_function,
@@ -97,34 +107,36 @@ if __name__ == "__main__":
     )
 
     logger = []
+    print("initial student coefficients: ", student_coefficients)
+    print()
     for epoch in range(epochs):
         start = time.time()
         print("epoch {}:".format(epoch + 1))
 
+        logger.append(student_coefficients)
         for j in tqdm(range(num_trajec), "#trajectory"):
 
             input_sequence = input_data[j]
             teacher_trajectory = teacher_trajectories[j]
 
-            loss_j, params_grads = loss_value_and_grad(
+            loss_j, meta_grads = loss_value_and_grad(
                 input_sequence,
                 teacher_trajectory,
                 student_coefficients,
                 student_plasticity_function,
-                winit,
+                winit_student,
                 connectivity_matrix,
             )
 
             expdata["loss"][epoch] += loss_j
             updates, opt_state = optimizer.update(
-                params_grads, opt_state, params
+                meta_grads, opt_state, student_coefficients
             )
 
-            params = optax.apply_updates(params, updates)
+            student_coefficients = optax.apply_updates(student_coefficients, updates)
 
-        logger.append(student_coefficients)
-        expdata["r2_score"][epoch], r2_weight = utils.get_r2_score(
-            winit,
+        expdata["r2_score"][epoch], r2_activity = utils.get_r2_score(
+            winit_test,
             connectivity_matrix,
             student_coefficients,
             student_plasticity_function,
@@ -134,12 +146,12 @@ if __name__ == "__main__":
 
         print("epoch time: {}s".format(round((time.time() - start), 1)))
         print("average LOSS per trajectory: ", (expdata["loss"][epoch] / num_trajec))
-        print("Activities R2 score: ", expdata["r2_score"][epoch])
-        print("Weights R2 score: ", r2_weight)
+        print("Activities R2 score: ", r2_activity)
+        print("Weights R2 score: ", expdata["r2_score"][epoch])
         print()
     
     print("teacher coefficients: ", teacher_coefficients)
     print("student coefficients: ", student_coefficients)
 
-    # np.savez("expdata/sparse_inputs/student_coeffs", np.array(logger))
-    # pd.DataFrame(expdata).to_csv("expdata/sparse_inputs/expdf.csv", index=True)
+    np.savez("expdata/sparse_inputs/student_coeffs", np.array(logger))
+    pd.DataFrame(expdata).to_csv("expdata/sparse_inputs/expdf.csv", index=True)

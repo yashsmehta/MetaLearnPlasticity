@@ -75,7 +75,7 @@ def network_step(
     reward = jax.random.bernoulli(key, reward_probability)
     decision = jax.random.bernoulli(key, outputs)
 
-    reward_term = decision * (reward - reward_probability)
+    reward_term = (decision * reward - reward_probability)
     # reward_term = decision * reward
 
     vfun = vmap(plasticity_function, in_axes=(0, None, 0, None))

@@ -4,7 +4,7 @@ import optax
 from tqdm import tqdm
 import time
 import numpy as np
-from plasticity import inputs, utils, synapse, network, losses
+from plasticity_activity import inputs, utils, synapse, network, losses
 
 
 def train_epoch(params, opt_state):
