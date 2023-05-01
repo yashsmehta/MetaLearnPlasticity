@@ -49,7 +49,7 @@ def init_oja(parameters):
     parameters[0][2][1] = -1
     return parameters
 
-def init_reward_volterra(init=None, random_key=None):
+def init_reward_volterra(random_key=None, init=None):
 
     init_functions = {
         "zeros": init_zeros,
@@ -65,7 +65,7 @@ def init_reward_volterra(init=None, random_key=None):
     parameters = init_functions[init]()
     return jnp.array(parameters), volterra_plasticity_function
 
-def init_volterra(init=None, random_key=None):
+def init_volterra(random_key=None, init=None):
 
     init_functions = {
         "zeros": init_zeros,

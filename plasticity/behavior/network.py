@@ -17,7 +17,7 @@ def simulate_fly_trial(key, weights, plasticity_coeffs, plasticity_func, r_ratio
         x = inputs.sample_inputs(odor_mus, odor_sigmas, odor, subkey)
         prob_output = jax.nn.sigmoid(jnp.dot(x, weights))
         key, subkey = split(key)
-        sampled_output = bernoulli(subkey, prob_output)
+        sampled_output = float(bernoulli(subkey, prob_output))
 
         input_xs.append(x)
         sampled_outputs.append(sampled_output)
@@ -86,7 +86,6 @@ def simulate_insilico_trial(weights, plasticity_coeffs, plasticity_func, x, rewa
 
 
 def simulate_insilico_experiment(
-    key,
     weights,
     plasticity_coeffs,
     plasticity_func,
@@ -100,7 +99,6 @@ def simulate_insilico_experiment(
 
     for block in range(num_blocks):
         for trial in range(trials_per_block):
-            key, _ = split(key)
             ys[block][trial], weights = simulate_insilico_trial(
                 weights,
                 plasticity_coeffs,
