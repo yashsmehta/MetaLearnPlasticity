@@ -4,16 +4,19 @@ from jax import vmap
 from jax.lax import reshape
 from plasticity import inputs
 from jax.random import bernoulli, split
+from functools import partial
+import numpy as np
 from plasticity.utils import create_nested_list
 
 
-def simulate_fly_trial(key, weights, plasticity_coeffs, plasticity_func, r_ratio, odor_r_hist, odor_mus, odor_sigmas):
-    input_xs, sampled_outputs = [], []
+def simulate_fly_trial(key, weights, plasticity_coeffs, plasticity_func, reward_in_arena, r_history, odor_mus, odor_sigmas):
+    input_xs, trial_odors, sampled_outputs = [], [], []
     moving_avg_window = 10
     
     while True:
         key, subkey = split(key)
         odor = int(bernoulli(key, 0.5))
+        trial_odors.append(odor)
         x = inputs.sample_inputs(odor_mus, odor_sigmas, odor, subkey)
         prob_output = jax.nn.sigmoid(jnp.dot(x, weights))
         key, subkey = split(key)
@@ -23,14 +26,15 @@ def simulate_fly_trial(key, weights, plasticity_coeffs, plasticity_func, r_ratio
         sampled_outputs.append(sampled_output)
 
         if sampled_output == 0:
-            reward = bernoulli(key, r_ratio[odor])
-            exp_reward = sum(odor_r_hist[odor][-moving_avg_window:]) / moving_avg_window
+            reward = reward_in_arena[odor]
+            reward_in_arena[odor] = 0
+            exp_reward = sum(r_history[-moving_avg_window:]) / moving_avg_window
             dw = weight_update(x, weights, plasticity_coeffs, plasticity_func, reward, exp_reward)
             weights += dw
-            odor_r_hist[odor].append(reward)
+            r_history.append(reward)
             break
 
-    return (input_xs, sampled_outputs, reward, exp_reward), weights, odor_r_hist
+    return (input_xs, trial_odors, sampled_outputs, reward, exp_reward), weights, reward_in_arena, r_history
 
 
 def simulate_fly_experiment(
@@ -45,36 +49,45 @@ def simulate_fly_experiment(
 ):
     num_blocks = len(reward_ratios)
     # we need to keep a track of this to calculate the expected reward for odors
-    odor_r_hist = [[], []]
+    r_history = []
+    reward_in_arena = np.zeros(2,)
 
-    xs, sampled_ys, rewards, exp_rewards = (
-        create_nested_list(num_blocks, trials_per_block) for _ in range(4)
+    xs, odors, sampled_ys, rewards, exp_rewards = (
+        create_nested_list(num_blocks, trials_per_block) for _ in range(5)
     )
 
     for block in range(num_blocks):
         r_ratio = reward_ratios[block]
         for trial in range(trials_per_block):
+            key, key2 = split(key)
+            if reward_in_arena[0] == 0:
+                reward_in_arena[0] = bernoulli(key, r_ratio[0])
+            if reward_in_arena[1] == 0:
+                reward_in_arena[1] = bernoulli(key2, r_ratio[1])
+
             key, _ = split(key)
-            trial_data, weights, odor_r_hist = simulate_fly_trial(
+            trial_data, weights, reward_in_area, r_history = simulate_fly_trial(
                 key,
                 weights,
                 plasticity_coeffs,
                 plasticity_func,
-                r_ratio,
-                odor_r_hist,
+                reward_in_arena,
+                r_history,
                 odor_mus,
                 odor_sigmas,
             )
             (
                 xs[block][trial],
+                odors[block][trial],
                 sampled_ys[block][trial],
                 rewards[block][trial],
                 exp_rewards[block][trial],
             ) = trial_data
 
-    return xs, sampled_ys, rewards, exp_rewards
+    return xs, odors, sampled_ys, rewards, exp_rewards
 
 
+@partial(jax.jit, static_argnames=["plasticity_func"])
 def simulate_insilico_trial(weights, plasticity_coeffs, plasticity_func, x, reward, exp_reward):
 
     outputs = [jax.nn.sigmoid(jnp.dot(xi, weights)) for xi in x]
@@ -114,6 +127,7 @@ def weight_update(
     x, weights, plasticity_coeffs, plasticity_func, reward, exp_reward
 ):
     reward_term = reward - exp_reward
+    # reward_term = reward
     m, n = weights.shape
     in_grid, _ = jnp.meshgrid(
         reshape(x, (m,)),

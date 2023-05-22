@@ -10,15 +10,16 @@ import time
 
 
 if __name__ == "__main__":
-    epochs = 5
-    num_blocks, trials_per_block = 2, 5
-    reward_ratios = ((0.1, 0.9), (0.9, 0.1))
+    epochs = 20
+    num_blocks, trials_per_block = 2, 50
+    reward_ratios = ((0.5, 0.5), (0.9, 0.1))
     assert len(reward_ratios) == num_blocks, print("length of reward ratios should be equal to number of blocks!")
 
-    input_dim, output_dim = 3, 1
+    input_dim, output_dim = 10, 1
     key = jax.random.PRNGKey(2)
 
-    fly_plasticity_coeff, plasticity_func = synapse.init_reward_volterra(init="reward")
+    fly_plasticity_coeff, plasticity_func = synapse.init_reward_volterra(init="reward-with-decay")
+    # fly_plasticity_coeff, plasticity_func = synapse.init_reward_volterra(key, init="random")
     insilico_plasticity_coeff, _ = synapse.init_reward_volterra(key, init="random")
 
     key, key2 = split(key)
@@ -39,19 +40,26 @@ if __name__ == "__main__":
     print("layer size: [{}, {}]".format(input_dim, output_dim))
     print()
 
-    xs, fly_ys, rewards, exp_rewards = network.simulate_fly_experiment(
+    xs, odors, fly_ys, rewards, exp_rewards = network.simulate_fly_experiment(
         key, winit, fly_plasticity_coeff, plasticity_func, mus, sigmas, reward_ratios, trials_per_block
     )
+    print(f"fly_plasticity_coeff: \n{fly_plasticity_coeff}")
+    print()
+    print(f"number of decisions in block 0: {sum([len(fly_y) for fly_y in fly_ys[0]])}")
+    print()
+    print(f"number of decisions in block 1: {sum([len(fly_y) for fly_y in fly_ys[1]])}")
+    print()
    
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(insilico_plasticity_coeff)
 
     for epoch in range(epochs):
-        loss = 0
         start = time.time()
-        print("Epoch {}:".format(epoch + 1))
+        print(f"epoch :{epoch + 1}")
         loss, meta_grads = loss_value_and_grad(winit, insilico_plasticity_coeff, plasticity_func, xs, rewards, exp_rewards, fly_ys)
+        print(f"loss :{loss}")
+        print()
 
         updates, opt_state = optimizer.update(
             meta_grads, opt_state, insilico_plasticity_coeff

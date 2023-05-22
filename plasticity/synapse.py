@@ -28,7 +28,7 @@ def init_zeros():
 
 def init_random(random_key):
     assert random_key is not None, "For random initialization, a random key has to be given"
-    return generate_gaussian(random_key, (3, 3, 3), scale=1e-4)
+    return generate_gaussian(random_key, (3, 3, 3), scale=1e-5)
 
 def init_reward(parameters):
     parameters[1][1][0] = 1
