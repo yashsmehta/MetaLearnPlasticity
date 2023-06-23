@@ -134,7 +134,7 @@ def simulate_insilico_experiment(
     final_weights, outputs = jax.lax.scan(
         step, initial_weights, (xs, rewards, exp_rewards, trial_lengths)
     )
-    return outputs, final_weights
+    return jnp.squeeze(outputs), final_weights
 
 
 def forward(weights, x):

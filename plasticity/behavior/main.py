@@ -63,11 +63,11 @@ def convert_xs_to_tensor(nested_list):
 
 
 if __name__ == "__main__":
-    num_epochs = 20
+    num_epochs = 1
     num_blocks, trials_per_block = 3, 5
     reward_ratios = ((0.2, 0.8), (0.8, 0.2), (0.2, 0.8))
     plasticity_mask = np.zeros((3, 3, 3))
-    plasticity_mask[1][1][0] = 1
+    # plasticity_mask[1][1][0] = 1
     # assert len(reward_ratios) == num_blocks, print("length of reward ratios should be equal to number of blocks!")
 
     input_dim, output_dim = 2, 1
@@ -107,8 +107,6 @@ if __name__ == "__main__":
     print("time taken to simulate experiment: ", time.time() - start)
     print()
 
-    print("time taken to simulate fly: ", time.time() - start)
-
     rewards = np.array(rewards, dtype=float).flatten()
     exp_rewards = np.array(exp_rewards).flatten()
     xs = convert_xs_to_tensor(xs)
@@ -117,14 +115,13 @@ if __name__ == "__main__":
     print("exp rewards: \n", exp_rewards)
     # print("xs: \n", xs_tensor)
     print("decisions: \n", decisions)
-    trial_lengths = np.sum(np.logical_not(np.isnan(decisions)), axis=1).astype(int)
+    trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions)), axis=1).astype(int)
 
-    insilico_ys, _ = network.simulate_insilico_experiment(
+    outputs, _ = network.simulate_insilico_experiment(
         winit, fly_plasticity_coeff, plasticity_func, xs, rewards, exp_rewards, trial_lengths
     )
-    print("insilico ys: \n", np.squeeze(insilico_ys))
+    print("outputs: \n", outputs)
     exit()
-
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(insilico_plasticity_coeff)
@@ -139,7 +136,8 @@ if __name__ == "__main__":
             xs,
             rewards,
             exp_rewards,
-            fly_ys,
+            decisions,
+            trial_lengths,
             plasticity_mask,
         )
         # check if loss is nan
@@ -165,4 +163,4 @@ if __name__ == "__main__":
     id_print(insilico_plasticity_coeff)
 
     # save loss into file as numpy array
-    np.save("expdata/loss.npy", loss_t)
+    # np.save("expdata/loss.npy", loss_t)

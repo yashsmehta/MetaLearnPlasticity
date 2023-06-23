@@ -7,17 +7,13 @@ from jax.experimental.host_callback import id_print
 import plasticity.behavior.network as network
 
 
-def compute_cross_entropy(fly_ys, insilico_ys):
-    losses = [
-        jnp.mean(optax.sigmoid_binary_cross_entropy(jnp.array(fly_trial), jnp.array(insilico_trial)))
-        for fly_block, insilico_block in zip(fly_ys, insilico_ys)
-        for fly_trial, insilico_trial in zip(fly_block, insilico_block)
-    ]
-    loss = jnp.mean(jnp.array(losses))
-    return loss
+def compute_cross_entropy(decisions, outputs):
+    losses = optax.sigmoid_binary_cross_entropy(outputs, decisions)
+    losses = jnp.nan_to_num(losses, nan=0)
+    return jnp.sum(losses)
 
 
-@partial(jax.jit, static_argnames=["plasticity_func"])
+# @partial(jax.jit, static_argnames=["plasticity_func"])
 def celoss(
         winit,
         plasticity_coeff,
@@ -25,14 +21,20 @@ def celoss(
         xs,
         rewards,
         exp_rewards,
-        fly_ys,
+        decisions,
+        trial_lengths,
         plasticity_mask=np.ones((3, 3, 3))
         ):
 
     plasticity_coeff = jnp.multiply(plasticity_coeff, plasticity_mask)
-    insilico_ys = network.simulate_insilico_experiment(winit, plasticity_coeff, plasticity_func, xs, rewards, exp_rewards)
-    id_print(plasticity_coeff[1][1][0])
-    loss = compute_cross_entropy(fly_ys, insilico_ys)
+
+    # here the outputs are not changing! Debug this!
+    outputs, _ = network.simulate_insilico_experiment(
+        winit, plasticity_coeff, plasticity_func, xs, rewards, exp_rewards, trial_lengths
+    )
+    # id_print(outputs)
+
+    loss = compute_cross_entropy(decisions, outputs)
 
     # add a L1 regularization term to the loss
     # loss += 5e-6 * jnp.sum(jnp.abs(student_coefficients))
