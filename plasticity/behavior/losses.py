@@ -1,7 +1,9 @@
+import numpy as np
 import jax
 import jax.numpy as jnp
 from functools import partial
 import optax
+from jax.experimental.host_callback import id_print
 import plasticity.behavior.network as network
 
 
@@ -15,7 +17,7 @@ def compute_cross_entropy(fly_ys, insilico_ys):
     return loss
 
 
-# @partial(jax.jit, static_argnames=["plasticity_func"])
+@partial(jax.jit, static_argnames=["plasticity_func"])
 def celoss(
         winit,
         plasticity_coeff,
@@ -23,9 +25,13 @@ def celoss(
         xs,
         rewards,
         exp_rewards,
-        fly_ys):
+        fly_ys,
+        plasticity_mask=np.ones((3, 3, 3))
+        ):
 
+    plasticity_coeff = jnp.multiply(plasticity_coeff, plasticity_mask)
     insilico_ys = network.simulate_insilico_experiment(winit, plasticity_coeff, plasticity_func, xs, rewards, exp_rewards)
+    id_print(plasticity_coeff[1][1][0])
     loss = compute_cross_entropy(fly_ys, insilico_ys)
 
     # add a L1 regularization term to the loss

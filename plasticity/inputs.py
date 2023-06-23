@@ -30,6 +30,14 @@ def generate_input_parameters(key, input_dim, num_odors, firing_fraction):
 
     return jnp.array(mus), jnp.array(sigmas)
 
+def generate_binary_input_parameters():
+    """
+    return mus, sigmas for one hot encoding of odors
+    """
+    mus = np.identity(2)
+    sigmas = np.zeros((2, 2, 2))
+    return jnp.array(mus), jnp.array(sigmas)
+
 def sample_inputs(mus, sigmas, k, random_key):
 
     # get a normally distributed variable

@@ -12,7 +12,6 @@ def volterra_synapse_tensor(x, y, z):
         ),
             jnp.array([z**0, z**1, z**2]),
     )
-
     synapse_tensor = jnp.reshape(synapse_tensor, (3, 3, 3))
     return synapse_tensor
 
