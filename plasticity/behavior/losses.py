@@ -9,7 +9,6 @@ import plasticity.behavior.network as network
 
 def compute_cross_entropy(decisions, outputs):
     losses = optax.sigmoid_binary_cross_entropy(outputs, decisions)
-    losses = jnp.nan_to_num(losses, nan=0)
     return jnp.sum(losses)
 
 
@@ -28,12 +27,17 @@ def celoss(
 
     plasticity_coeff = jnp.multiply(plasticity_coeff, plasticity_mask)
 
-    # here the outputs are not changing! Debug this!
     outputs, _ = network.simulate_insilico_experiment(
         winit, plasticity_coeff, plasticity_func, xs, rewards, exp_rewards, trial_lengths
     )
-    # id_print(outputs)
+    print("decisions shape: ", decisions.shape)
+    print("outputs shape: ", outputs.shape)
+    mask = jnp.logical_not(jnp.isnan(outputs))
+    outputs = jnp.multiply(outputs, mask)
+    decisions = jnp.multiply(decisions, mask)
 
+    print("decisions : ", decisions)
+    print("outputs : ", outputs)
     loss = compute_cross_entropy(decisions, outputs)
 
     # add a L1 regularization term to the loss

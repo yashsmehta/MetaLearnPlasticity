@@ -11,36 +11,11 @@ import numpy as np
 from jax.random import split
 import time
 
-
-def convert_decisions_to_tensor(nested_list):
+def convert_list_to_tensor(nested_list):
     num_blocks = len(nested_list)
     trials_per_block = len(nested_list[0])
+
     num_trials = num_blocks * trials_per_block
-
-    longest_trial_length = max(
-        max(
-            [
-                [len(nested_list[j][i]) for i in range(trials_per_block)]
-                for j in range(num_blocks)
-            ]
-        )
-    )
-    tensor = np.full((num_trials, longest_trial_length), np.nan)
-
-    for i in range(num_blocks):
-        for j in range(trials_per_block):
-            trial = nested_list[i][j]
-            for k in range(len(trial)):
-                tensor[i * trials_per_block + j][k] = trial[k]
-
-    return tensor
-
-
-def convert_xs_to_tensor(nested_list):
-    num_blocks = len(nested_list)
-    trials_per_block = len(nested_list[0])
-    num_trials = num_blocks * trials_per_block
-    element_dim = 2
 
     trial_lengths = [
                 [len(nested_list[j][i]) for i in range(trials_per_block)]
@@ -48,10 +23,14 @@ def convert_xs_to_tensor(nested_list):
             ]
 
     longest_trial_length = np.max(np.array(trial_lengths))
-    print("xs: ", nested_list)
-    
+
+    try: 
+        element_dim = len(nested_list[0][0][0])
+    except TypeError:  # if item is not iterable
+        element_dim = 1 
+
     tensor = np.full((num_trials, longest_trial_length, element_dim), np.nan)
-    print("tensor shape : ", tensor.shape)
+    tensor = tensor.squeeze()
 
     for i in range(num_blocks):
         for j in range(trials_per_block):
@@ -104,18 +83,20 @@ if __name__ == "__main__":
         reward_ratios,
         trials_per_block,
     )
-    print("time taken to simulate experiment: ", time.time() - start)
-    print()
 
     rewards = np.array(rewards, dtype=float).flatten()
     exp_rewards = np.array(exp_rewards).flatten()
-    xs = convert_xs_to_tensor(xs)
-    decisions = convert_decisions_to_tensor(decisions)
-    print("rewards: \n", rewards)
-    print("exp rewards: \n", exp_rewards)
-    # print("xs: \n", xs_tensor)
-    print("decisions: \n", decisions)
+    xs = convert_list_to_tensor(xs)
+    decisions = convert_list_to_tensor(decisions)
     trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions)), axis=1).astype(int)
+
+    outputs, _ = network.simulate_insilico_experiment(
+        winit, insilico_plasticity_coeff, plasticity_func, xs, rewards, exp_rewards, trial_lengths
+    )
+    print("decisions: \n", decisions)
+    print()
+    print("outputs: \n", outputs)
+    print()
 
     loss = losses.celoss(
         winit,

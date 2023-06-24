@@ -53,18 +53,7 @@ def simulate_fly_trial(
             weights += dw
             break
 
-    return (
-        (
-            jnp.array(input_xs),
-            jnp.array(trial_odors),
-            jnp.array(sampled_outputs),
-            reward,
-            exp_reward,
-        ),
-        weights,
-        rewards_in_arena,
-        r_history,
-    )
+    return (input_xs, trial_odors, sampled_outputs, reward, exp_reward), weights, rewards_in_arena, r_history
 
 
 def simulate_fly_experiment(
