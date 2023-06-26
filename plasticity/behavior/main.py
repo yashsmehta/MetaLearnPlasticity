@@ -46,9 +46,9 @@ def convert_list_to_tensor(nested_list, list_type="decisions"):
 
 
 if __name__ == "__main__":
-    num_epochs = 3000
-    num_blocks, trials_per_block = 3, 50
-    reward_ratios = ((0.2, 0.8), (0.2, 0.8), (0.2, 0.8))
+    num_iterations = 5000
+    num_blocks, trials_per_block = 3, 80
+    reward_ratios = ((0.2, 0.8), (0.1, 0.9), (0.2, 0.8))
     plasticity_mask = np.zeros((3, 3, 3))
     plasticity_mask[1][1][0] = 1
     # assert len(reward_ratios) == num_blocks, print("length of reward ratios should be equal to number of blocks!")
@@ -95,12 +95,15 @@ if __name__ == "__main__":
     odors = convert_list_to_tensor(odors, list_type="odors")
     decisions = convert_list_to_tensor(decisions, list_type="decisions")
     trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions)), axis=1).astype(int)
+    print("trial lengths: \n", trial_lengths)
+    print("odors: \n", odors)
+
 
     mask = np.ones(decisions.shape)
     for i, length in enumerate(trial_lengths):
         mask[i][length:] = 0
 
-    outputs, _ = network.simulate_insilico_experiment(
+    logits, _ = network.simulate_insilico_experiment(
         winit, insilico_plasticity_coeff, plasticity_func, xs, rewards, exp_rewards, trial_lengths
     )
 
@@ -117,13 +120,16 @@ if __name__ == "__main__":
     #     plasticity_mask,
     # )
     # print("loss: ", loss)
+    # exit()
+    
 
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(insilico_plasticity_coeff)
     loss_t = []
+    coeff_t = []
 
-    for epoch in range(num_epochs):
+    for iteration in range(num_iterations):
         start = time.time()
         loss, meta_grads = loss_value_and_grad(
             winit,
@@ -141,12 +147,13 @@ if __name__ == "__main__":
         if np.isnan(loss):
             print("loss is nan!")
             break
-        loss_t.append(loss)
-        if epoch % 100 == 0:
-            print(f"iteration :{epoch}")
+        if iteration % 100 == 0:
+            print(f"iteration :{iteration}")
             print(f"loss :{loss}")
             id_print(insilico_plasticity_coeff[1][1][0])
             print()
+            coeff_t.append(insilico_plasticity_coeff[1][1][0])
+            loss_t.append(loss)
 
         updates, opt_state = optimizer.update(
             meta_grads, opt_state, insilico_plasticity_coeff
@@ -157,6 +164,6 @@ if __name__ == "__main__":
         )
         # jax.debug.print("insilico_plasticity_coeff: {}", insilico_plasticity_coeff)
 
-
     # save loss into file as numpy array
-    # np.save("expdata/loss.npy", loss_t)
+    # np.save("expdata/loss.npy", np.array(loss_t))
+    # np.save("expdata/coeff.npy", np.array(coeff_t))

@@ -120,28 +120,28 @@ def simulate_insilico_experiment(
             trial_length
         )
 
-    final_weights, outputs = jax.lax.scan(
+    final_weights, logits = jax.lax.scan(
         step, initial_weights, (xs, rewards, exp_rewards, trial_lengths)
     )
-    return jnp.squeeze(outputs), final_weights
+    return jnp.squeeze(logits), final_weights
 
 
 def forward(weights, x):
-    return sigmoid(jnp.dot(x, weights))
+    return jnp.dot(x, weights)
 
 
 def network_step(
     input, weights, plasticity_coeffs, plasticity_func, reward, exp_reward, trial_length
 ):
     vmapped_forward = vmap(forward, in_axes=(None, 0))
-    output = vmapped_forward(weights, input)
+    logits = vmapped_forward(weights, input)
     x = input[trial_length - 1]
     dw = weight_update(
         x, weights, plasticity_coeffs, plasticity_func, reward, exp_reward
     )
     weights += dw
 
-    return weights, output
+    return weights, logits
 
 
 def weight_update(x, weights, plasticity_coeffs, plasticity_func, reward, exp_reward):
