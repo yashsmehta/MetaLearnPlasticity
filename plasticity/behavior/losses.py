@@ -14,30 +14,36 @@ def compute_cross_entropy(decisions, logits):
 
 @partial(jax.jit, static_argnames=["plasticity_func"])
 def celoss(
+    winit,
+    plasticity_coeff,
+    plasticity_func,
+    xs,
+    rewards,
+    exp_rewards,
+    decisions,
+    trial_lengths,
+    mask,
+    coeff_mask=np.ones((3, 3, 3)),
+):
+
+    plasticity_coeff = jnp.multiply(plasticity_coeff, coeff_mask)
+
+    logits, _ = network.simulate_insilico_experiment(
         winit,
         plasticity_coeff,
         plasticity_func,
         xs,
         rewards,
         exp_rewards,
-        decisions,
         trial_lengths,
-        mask,
-        plasticity_mask=np.ones((3, 3, 3))
-        ):
-
-    plasticity_coeff = jnp.multiply(plasticity_coeff, plasticity_mask)
-
-    logits, _ = network.simulate_insilico_experiment(
-        winit, plasticity_coeff, plasticity_func, xs, rewards, exp_rewards, trial_lengths
     )
     # print("decisions: \n", decisions)
     logits = jnp.multiply(logits, mask)
     decisions = jnp.nan_to_num(decisions, copy=False, nan=0)
     # print("logits: \n", logits)
- 
+
     loss = compute_cross_entropy(decisions, logits)
 
     # add a L1 regularization term to the loss
-    # loss += 5e-6 * jnp.sum(jnp.abs(student_coefficients))
+    # loss += 5e-5 * jnp.sum(jnp.abs(plasticity_coeff))
     return loss
