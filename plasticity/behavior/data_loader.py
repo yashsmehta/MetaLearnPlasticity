@@ -90,6 +90,12 @@ def simulate_fly_experiment(
     trials_per_block,
     moving_avg_window=10,
 ):
+    """Simulate a single fly experiment with given plasticity coefficients
+    Returns:
+        a nested list (num_blocks x trials_per_block) of lists of different
+        lengths corresponding to the number of timesteps in each trial
+    """
+
     num_blocks = len(reward_ratios)
     r_history = collections.deque(moving_avg_window * [0], maxlen=moving_avg_window)
     rewards_in_arena = np.zeros(
@@ -139,6 +145,12 @@ def simulate_fly_trial(
     odor_mus,
     odor_sigmas,
 ):
+    """Simulate a single fly trial, which ends when the fly accepts odor
+    Returns:
+        a tuple containing lists of xs, odors, decisions (sampled outputs), rewards, 
+        and expected_rewards for the trial
+    """
+
     input_xs, trial_odors, decisions = [], [], []
 
     expected_reward = np.mean(r_history)

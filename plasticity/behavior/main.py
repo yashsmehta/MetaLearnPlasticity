@@ -39,7 +39,6 @@ if __name__ == "__main__":
     key, key2 = split(key)
 
     # winit = jnp.zeros((input_dim, output_dim))
-
     winit = utils.generate_gaussian(key, (input_dim, output_dim), scale=0.01)
     print(f"initial weights: \n{winit}")
     key, key2 = split(key)
@@ -59,16 +58,15 @@ if __name__ == "__main__":
         rewards,
         expected_rewards,
     ) = data_loader.simulate_all_experiments(
-        key,
-        num_exps,
-        winit,
-        simulation_coeff,
-        plasticity_func,
-        mus,
-        sigmas,
-        reward_ratios,
-        trials_per_block,
-    )
+                                        key,
+                                        num_exps,
+                                        winit,
+                                        simulation_coeff,
+                                        plasticity_func,
+                                        mus,
+                                        sigmas,
+                                        reward_ratios,
+                                        trials_per_block)
 
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)
@@ -77,18 +75,19 @@ if __name__ == "__main__":
     for epoch in range(num_epochs):
         for exp_i in range(num_exps):
             start = time.time()
+            # calculate the length of each trial by checking for NaNs
             trial_lengths = jnp.sum(
                 jnp.logical_not(jnp.isnan(decisions[str(exp_i)])), axis=1
             ).astype(int)
-            # print("trial lengths: \n", trial_lengths)
-            # print("odors: \n", odors[str(exp_i)])
 
             logits_mask = np.ones(decisions[str(exp_i)].shape)
             for j, length in enumerate(trial_lengths):
                 logits_mask[j][length:] = 0
 
+            # debug
+            # print("trial lengths: \n", trial_lengths)
+            # print("odors: \n", odors[str(exp_i)])
             # print("logits mask: \n", logits_mask)
-
             # loss = losses.celoss(
             #     winit,
             #     plasticity_coeff,
@@ -121,6 +120,7 @@ if __name__ == "__main__":
             )
 
             plasticity_coeff = optax.apply_updates(plasticity_coeff, updates)
+
         # check if loss is nan
         if np.isnan(loss):
             print("loss is nan!")
