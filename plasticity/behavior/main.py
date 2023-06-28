@@ -9,9 +9,6 @@ import numpy as np
 from jax.random import split
 import time
 
-from jax.experimental.host_callback import id_print
-from pprint import pprint
-
 
 if __name__ == "__main__":
     num_epochs = 1000
@@ -33,7 +30,8 @@ if __name__ == "__main__":
     input_dim, output_dim = 2, 1
     key = jax.random.PRNGKey(0)
 
-    simulation_coeff, plasticity_func = synapse.init_reward_volterra(init="reward")
+    simulation_coeff, plasticity_func = synapse.init_reward_volterra(
+                                                            init="reward")
     plasticity_coeff, _ = synapse.init_reward_volterra(init="zeros")
 
     key, key2 = split(key)
@@ -58,15 +56,15 @@ if __name__ == "__main__":
         rewards,
         expected_rewards,
     ) = data_loader.simulate_all_experiments(
-                                        key,
-                                        num_exps,
-                                        winit,
-                                        simulation_coeff,
-                                        plasticity_func,
-                                        mus,
-                                        sigmas,
-                                        reward_ratios,
-                                        trials_per_block)
+                                    key,
+                                    num_exps,
+                                    winit,
+                                    simulation_coeff,
+                                    plasticity_func,
+                                    mus,
+                                    sigmas,
+                                    reward_ratios,
+                                    trials_per_block)
 
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)

@@ -1,11 +1,8 @@
-import numpy as np
 import jax
 import jax.numpy as jnp
 from functools import partial
 import optax
-from jax.experimental.host_callback import id_print
 import plasticity.behavior.model as model
-from pprint import pprint
 
 
 def compute_cross_entropy(decisions, logits):

@@ -1,12 +1,7 @@
 import numpy as np
 import jax.numpy as jnp
-import jax
-from jax import vmap
-from jax.lax import reshape
 from jax.random import bernoulli, split
-from functools import partial
 from jax.nn import sigmoid
-from jax.experimental.host_callback import id_print
 import collections
 
 import plasticity.behavior.model as model
@@ -97,7 +92,10 @@ def simulate_fly_experiment(
     """
 
     num_blocks = len(reward_ratios)
-    r_history = collections.deque(moving_avg_window * [0], maxlen=moving_avg_window)
+    r_history = collections.deque(
+                    moving_avg_window * [0],
+                    maxlen=moving_avg_window
+                    )
     rewards_in_arena = np.zeros(
         2,
     )
@@ -147,8 +145,8 @@ def simulate_fly_trial(
 ):
     """Simulate a single fly trial, which ends when the fly accepts odor
     Returns:
-        a tuple containing lists of xs, odors, decisions (sampled outputs), rewards, 
-        and expected_rewards for the trial
+        a tuple containing lists of xs, odors, decisions (sampled outputs), 
+        rewards, and expected_rewards for the trial
     """
 
     input_xs, trial_odors, decisions = [], [], []
@@ -172,7 +170,12 @@ def simulate_fly_trial(
             r_history.appendleft(reward)
             rewards_in_arena[odor] = 0
             dw = model.weight_update(
-                x, weights, plasticity_coeffs, plasticity_func, reward, expected_reward
+                x,
+                weights,
+                plasticity_coeffs,
+                plasticity_func,
+                reward,
+                expected_reward
             )
             weights += dw
             break

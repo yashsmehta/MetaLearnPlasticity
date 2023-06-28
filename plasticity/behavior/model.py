@@ -86,6 +86,7 @@ def weight_update(
 
     assert (
         dw.shape == weights.shape
-    ), "dw and w should be of the same shape to prevent broadcasting while adding"
+    ), "dw and w should be of the same shape to prevent broadcasting \
+        while adding"
 
     return dw
