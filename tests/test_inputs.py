@@ -5,32 +5,17 @@ import unittest
 
 
 class TestInputs(unittest.TestCase):
-
     def test_inputs(self):
 
-        mus = jnp.array([
-            [1, 0, 0],
-            [0, 1, 0],
-            [0, 0, 1]
-        ])
+        mus = jnp.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
 
-        sigmas = jnp.array([
+        sigmas = jnp.array(
             [
-                [1, 0, 0],
-                [0, 1, 0],
-                [0, 0, 1]
-            ],
-            [
-                [0.1, 0, 0],
-                [0, 0.1, 0],
-                [0, 0, 0.1]
-            ],
-            [
-                [1, 0, 0],
-                [0, 1, 0],
-                [0, 0, 0.001]
+                [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+                [[0.1, 0, 0], [0, 0.1, 0], [0, 0, 0.1]],
+                [[1, 0, 0], [0, 1, 0], [0, 0, 0.001]],
             ]
-        ])
+        )
 
         random_key = jax.random.PRNGKey(42)
         for i in range(10):

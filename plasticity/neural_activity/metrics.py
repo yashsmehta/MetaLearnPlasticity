@@ -1,10 +1,10 @@
-
 import jax.numpy as jnp
 import jax
 import numpy as np
 import sklearn.metrics
-from plasticity import inputs 
+from plasticity import inputs
 import network
+
 
 def get_r2_score(
     winit,
@@ -76,4 +76,3 @@ def get_r2_score(
             activity_teacher_trajectories[i], activity_student_trajectories[i]
         )
     return jnp.mean(r2_score_activity), jnp.mean(r2_score_weight)
-

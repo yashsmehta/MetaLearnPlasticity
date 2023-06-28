@@ -4,7 +4,7 @@ from jax import vmap
 from jax.lax import reshape
 
 
-def simulate_insilico_experiment(
+def simulate(
     initial_weights,
     plasticity_coeffs,
     plasticity_func,
@@ -18,6 +18,7 @@ def simulate_insilico_experiment(
     Returns:
         a tensor of logits for the experiment, and the final weights
     """
+
     def step(weights, stimulus):
         x, reward, expected_reward, trial_length = stimulus
         return network_step(

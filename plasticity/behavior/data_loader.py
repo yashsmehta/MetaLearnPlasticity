@@ -92,10 +92,7 @@ def simulate_fly_experiment(
     """
 
     num_blocks = len(reward_ratios)
-    r_history = collections.deque(
-                    moving_avg_window * [0],
-                    maxlen=moving_avg_window
-                    )
+    r_history = collections.deque(moving_avg_window * [0], maxlen=moving_avg_window)
     rewards_in_arena = np.zeros(
         2,
     )
@@ -145,7 +142,7 @@ def simulate_fly_trial(
 ):
     """Simulate a single fly trial, which ends when the fly accepts odor
     Returns:
-        a tuple containing lists of xs, odors, decisions (sampled outputs), 
+        a tuple containing lists of xs, odors, decisions (sampled outputs),
         rewards, and expected_rewards for the trial
     """
 
@@ -170,12 +167,7 @@ def simulate_fly_trial(
             r_history.appendleft(reward)
             rewards_in_arena[odor] = 0
             dw = model.weight_update(
-                x,
-                weights,
-                plasticity_coeffs,
-                plasticity_func,
-                reward,
-                expected_reward
+                x, weights, plasticity_coeffs, plasticity_func, reward, expected_reward
             )
             weights += dw
             break

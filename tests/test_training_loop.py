@@ -1,4 +1,3 @@
-
 import jax.numpy as jnp
 import jax
 from jax import vmap
@@ -13,24 +12,14 @@ class TestTrainingLoop(unittest.TestCase):
 
     key = jax.random.PRNGKey(42)
 
-    connectivity_matrix = utils.generate_random_connectivity(
-        key, 5, 5, sparsity=1
-    )
-    winit_teacher = utils.generate_gaussian(
-        key, (5,5), scale=0.1
-    )
+    connectivity_matrix = utils.generate_random_connectivity(key, 5, 5, sparsity=1)
+    winit_teacher = utils.generate_gaussian(key, (5, 5), scale=0.1)
 
-    winit_student = utils.generate_gaussian(
-        key, (5,5), scale=0.1
-    )
+    winit_student = utils.generate_gaussian(key, (5, 5), scale=0.1)
 
-    mus, sigmas = inputs.generate_input_parameters(
-        key, 5, 10, firing_fraction=0.5
-    )
+    mus, sigmas = inputs.generate_input_parameters(key, 5, 10, firing_fraction=0.5)
 
-    odors_tensor = jax.random.choice(
-        key, jnp.arange(10), shape=(1, 50)
-    )
+    odors_tensor = jax.random.choice(key, jnp.arange(10), shape=(1, 50))
     keys_tensor = jax.random.split(key, num=(1 * 50))
     keys_tensor = keys_tensor.reshape(1, 50, 2)
 
@@ -73,9 +62,12 @@ class TestTrainingLoop(unittest.TestCase):
         self.assertFalse(jnp.any(self.meta_grads))
 
     def test_activity_trajectory(self):
-        self.assertEqual(self.teacher_trajectories.shape, self.student_trajectories.shape)
-        trajectories_diff = self.teacher_trajectories - self.student_trajectories 
+        self.assertEqual(
+            self.teacher_trajectories.shape, self.student_trajectories.shape
+        )
+        trajectories_diff = self.teacher_trajectories - self.student_trajectories
         self.assertFalse(jnp.any(trajectories_diff))
+
 
 if __name__ == "__main__":
     unittest.main()

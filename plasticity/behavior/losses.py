@@ -27,7 +27,7 @@ def celoss(
 
     plasticity_coeff = jnp.multiply(plasticity_coeff, coeff_mask)
 
-    logits, _ = model.simulate_insilico_experiment(
+    logits, _ = model.simulate(
         winit,
         plasticity_coeff,
         plasticity_func,

@@ -30,6 +30,7 @@ def generate_input_parameters(key, input_dim, num_odors, firing_fraction):
 
     return jnp.array(mus), jnp.array(sigmas)
 
+
 def generate_binary_input_parameters():
     """
     return mus, sigmas for binary encoding of 2 odors
@@ -37,6 +38,7 @@ def generate_binary_input_parameters():
     mus = jnp.identity(2)
     sigmas = jnp.zeros((2, 2, 2))
     return mus, sigmas
+
 
 def sample_inputs(mus, sigmas, k, random_key):
 
@@ -48,6 +50,7 @@ def sample_inputs(mus, sigmas, k, random_key):
     x = x + mus[k]
 
     return x
+
 
 def generate_sparse_inputs(mus, sigmas, odors_tensor, keys_tensor):
     vsample_inputs = vmap(sample_inputs, in_axes=(None, None, 0, 0))

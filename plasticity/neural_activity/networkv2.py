@@ -7,6 +7,8 @@ from jax import vmap
 the only change from network.py is just in the network_step function, where we are using the dan activity to calculate the dw
 in place of the usual y activity as done originally in single layer networks.
 """
+
+
 def generate_trajectories(
     input_data,
     initial_weights,
@@ -48,7 +50,11 @@ def generate_trajectory(
             plasticity_function,
         )
 
-    final_weights, (dw_trajectory, weight_trajectory, activity_trajectory) = jax.lax.scan(step, initial_weights, input_sequence)
+    final_weights, (
+        dw_trajectory,
+        weight_trajectory,
+        activity_trajectory,
+    ) = jax.lax.scan(step, initial_weights, input_sequence)
     return (dw_trajectory, weight_trajectory, activity_trajectory), final_weights
 
 
@@ -80,4 +86,3 @@ def network_step(
     weights += dw
 
     return (weights, (dw, weights, dan_activity))
-

@@ -9,9 +9,9 @@ import time
 if __name__ == "__main__":
     num_trajec, len_trajec = 200, 100
     # implement a read connectivity function; get the dims and connectivity
-    input_dim, output_dim = 10, 10 
+    input_dim, output_dim = 10, 10
     key = jax.random.PRNGKey(0)
-    epochs =5 
+    epochs = 5
 
     teacher_coefficients, teacher_plasticity_function = synapse.init_volterra("oja")
 
