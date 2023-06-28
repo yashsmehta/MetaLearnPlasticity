@@ -1,4 +1,6 @@
 import jax
+import jax.numpy as jnp
+import numpy as np
 
 
 def generate_gaussian(key, shape, scale=0.1):
@@ -17,6 +19,3 @@ def generate_random_connectivity(key, m, n, sparsity):
     """
 
     return jax.random.bernoulli(key, p=float(sparsity), shape=(m, n))
-
-def create_nested_list(num_outer, num_inner):
-    return [[[] for _ in range(num_inner)] for _ in range(num_outer)]

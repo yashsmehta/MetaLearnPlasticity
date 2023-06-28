@@ -4,10 +4,12 @@ import jax.numpy as jnp
 from functools import partial
 import optax
 from jax.experimental.host_callback import id_print
-import plasticity.behavior.network as network
+import plasticity.behavior.model as model
+from pprint import pprint
 
 
 def compute_cross_entropy(decisions, logits):
+    # returns the mean of the element-wise cross entropy
     losses = optax.sigmoid_binary_cross_entropy(logits, decisions)
     return jnp.mean(losses)
 
@@ -19,26 +21,26 @@ def celoss(
     plasticity_func,
     xs,
     rewards,
-    exp_rewards,
+    expected_rewards,
     decisions,
     trial_lengths,
-    mask,
-    coeff_mask=np.ones((3, 3, 3)),
+    logits_mask,
+    coeff_mask=jnp.ones((3, 3, 3)),
 ):
 
     plasticity_coeff = jnp.multiply(plasticity_coeff, coeff_mask)
 
-    logits, _ = network.simulate_insilico_experiment(
+    logits, _ = model.simulate_insilico_experiment(
         winit,
         plasticity_coeff,
         plasticity_func,
         xs,
         rewards,
-        exp_rewards,
+        expected_rewards,
         trial_lengths,
     )
     # print("decisions: \n", decisions)
-    logits = jnp.multiply(logits, mask)
+    logits = jnp.multiply(logits, logits_mask)
     decisions = jnp.nan_to_num(decisions, copy=False, nan=0)
     # print("logits: \n", logits)
 
