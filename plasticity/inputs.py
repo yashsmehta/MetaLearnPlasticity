@@ -32,11 +32,11 @@ def generate_input_parameters(key, input_dim, num_odors, firing_fraction):
 
 def generate_binary_input_parameters():
     """
-    return mus, sigmas for one hot encoding of odors
+    return mus, sigmas for binary encoding of 2 odors
     """
-    mus = np.identity(2)
-    sigmas = np.zeros((2, 2, 2))
-    return jnp.array(mus), jnp.array(sigmas)
+    mus = jnp.identity(2)
+    sigmas = jnp.zeros((2, 2, 2))
+    return mus, sigmas
 
 def sample_inputs(mus, sigmas, k, random_key):
 
@@ -48,22 +48,6 @@ def sample_inputs(mus, sigmas, k, random_key):
     x = x + mus[k]
 
     return x
-
-def get_reward_prob_tensor(odors_tensor, reward_ratios_seq):
-    """
-    TODO: make efficient by changing for-loop to vmap
-    """
-    num_trajec, len_trajec = odors_tensor.shape
-    block_interval_length = len_trajec // len(reward_ratios_seq)
-    reward_prob_tensor = np.zeros((num_trajec, len_trajec))
-
-    for trial in range(num_trajec):
-        for time_step in range(len_trajec):
-            block = time_step // block_interval_length
-            r1, r2 = reward_ratios_seq[block]
-            reward_prob_tensor[trial, time_step] = r1 if odors_tensor[trial, time_step] == 0 else r2
-
-    return reward_prob_tensor
 
 def generate_sparse_inputs(mus, sigmas, odors_tensor, keys_tensor):
     vsample_inputs = vmap(sample_inputs, in_axes=(None, None, 0, 0))
