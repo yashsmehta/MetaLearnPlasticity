@@ -7,6 +7,7 @@ from jax.random import bernoulli, split
 from functools import partial
 from jax.nn import sigmoid
 from jax.experimental.host_callback import id_print
+import collections
 
 from plasticity.utils import create_nested_list
 from plasticity import inputs
@@ -22,14 +23,9 @@ def simulate_fly_trial(
     odor_mus,
     odor_sigmas,
 ):
-    moving_avg_window = 10
-    input_xs, trial_odors, sampled_outputs = [], [], []
-    if len(r_history) >= moving_avg_window:
-        exp_reward = sum(r_history[-moving_avg_window:]) / moving_avg_window
-    elif len(r_history) > 0:
-        exp_reward = sum(r_history) / len(r_history)
-    else:
-        exp_reward = 0
+    input_xs, trial_odors, decisions = [], [], []
+
+    expected_reward = np.mean(r_history)
 
     while True:
         key, subkey = split(key)
@@ -41,19 +37,19 @@ def simulate_fly_trial(
         sampled_output = float(bernoulli(subkey, prob_output))
 
         input_xs.append(x)
-        sampled_outputs.append(sampled_output)
+        decisions.append(sampled_output)
 
         if sampled_output == 1:
             reward = rewards_in_arena[odor]
-            r_history.append(reward)
+            r_history.appendleft(reward)
             rewards_in_arena[odor] = 0
             dw = weight_update(
-                x, weights, plasticity_coeffs, plasticity_func, reward, exp_reward
+                x, weights, plasticity_coeffs, plasticity_func, reward, expected_reward
             )
             weights += dw
             break
 
-    return (input_xs, trial_odors, sampled_outputs, reward, exp_reward), weights, rewards_in_arena, r_history
+    return (input_xs, trial_odors, decisions, reward, expected_reward), weights, rewards_in_arena, r_history
 
 
 def simulate_fly_experiment(
@@ -65,14 +61,13 @@ def simulate_fly_experiment(
     odor_sigmas,
     reward_ratios,
     trials_per_block,
+    moving_avg_window=10,
 ):
     num_blocks = len(reward_ratios)
-    r_history = []
-    rewards_in_arena = np.zeros(
-        2,
-    )
+    r_history = collections.deque(moving_avg_window*[0], maxlen=moving_avg_window)
+    rewards_in_arena = np.zeros(2,)
 
-    xs, odors, sampled_ys, rewards, exp_rewards = (
+    xs, odors, sampled_ys, rewards, expected_rewards = (
         create_nested_list(num_blocks, trials_per_block) for _ in range(5)
     )
 
@@ -99,49 +94,49 @@ def simulate_fly_experiment(
                 odors[block][trial],
                 sampled_ys[block][trial],
                 rewards[block][trial],
-                exp_rewards[block][trial],
+                expected_rewards[block][trial],
             ) = trial_data
 
-    return xs, odors, sampled_ys, rewards, exp_rewards
+    return xs, odors, sampled_ys, rewards, expected_rewards
 
 
 def simulate_insilico_experiment(
-    initial_weights, plasticity_coeffs, plasticity_func, xs, rewards, exp_rewards, trial_lengths
+    initial_weights, plasticity_coeffs, plasticity_func, xs, rewards, expected_rewards, trial_lengths
 ):
     def step(weights, stimulus):
-        x, reward, exp_reward, trial_length = stimulus
+        x, reward, expected_reward, trial_length = stimulus
         return network_step(
             x,
             weights,
             plasticity_coeffs,
             plasticity_func,
             reward,
-            exp_reward,
+            expected_reward,
             trial_length
         )
 
     final_weights, logits = jax.lax.scan(
-        step, initial_weights, (xs, rewards, exp_rewards, trial_lengths)
+        step, initial_weights, (xs, rewards, expected_rewards, trial_lengths)
     )
     return jnp.squeeze(logits), final_weights
 
 
 def network_step(
-    input, weights, plasticity_coeffs, plasticity_func, reward, exp_reward, trial_length
+    input, weights, plasticity_coeffs, plasticity_func, reward, expected_reward, trial_length
 ):
     vmapped_forward = vmap(lambda weights, x: jnp.dot(x,weights), (None, 0))
     logits = vmapped_forward(weights, input)
     x = input[trial_length - 1]
     dw = weight_update(
-        x, weights, plasticity_coeffs, plasticity_func, reward, exp_reward
+        x, weights, plasticity_coeffs, plasticity_func, reward, expected_reward
     )
     weights += dw
 
     return weights, logits
 
 
-def weight_update(x, weights, plasticity_coeffs, plasticity_func, reward, exp_reward):
-    reward_term = reward - exp_reward
+def weight_update(x, weights, plasticity_coeffs, plasticity_func, reward, expected_reward):
+    reward_term = reward - expected_reward
     m, n = weights.shape
     in_grid, _ = jnp.meshgrid(
         reshape(x, (m,)),
