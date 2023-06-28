@@ -126,14 +126,10 @@ def simulate_insilico_experiment(
     return jnp.squeeze(logits), final_weights
 
 
-def forward(weights, x):
-    return jnp.dot(x, weights)
-
-
 def network_step(
     input, weights, plasticity_coeffs, plasticity_func, reward, exp_reward, trial_length
 ):
-    vmapped_forward = vmap(forward, in_axes=(None, 0))
+    vmapped_forward = vmap(lambda weights, x: jnp.dot(x,weights), (None, 0))
     logits = vmapped_forward(weights, input)
     x = input[trial_length - 1]
     dw = weight_update(
