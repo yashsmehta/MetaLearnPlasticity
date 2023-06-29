@@ -22,7 +22,7 @@ def celoss(
     decisions,
     trial_lengths,
     logits_mask,
-    coeff_mask=jnp.ones((3, 3, 3)),
+    coeff_mask,
 ):
 
     plasticity_coeff = jnp.multiply(plasticity_coeff, coeff_mask)

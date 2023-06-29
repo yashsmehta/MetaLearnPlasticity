@@ -12,14 +12,12 @@ from plasticity import inputs
 
 def simulate_all_experiments(
     key,
-    num_exps,
+    cfg,
     winit,
     plasticity_coeff,
     plasticity_func,
     mus,
     sigmas,
-    reward_ratios,
-    trials_per_block,
 ):
 
     """Simulate all fly experiments with given plasticity coefficients
@@ -28,10 +26,9 @@ def simulate_all_experiments(
         tensors as values
     """
 
-    num_blocks = len(reward_ratios)
     xs, odors, decisions, rewards, expected_rewards = {}, {}, {}, {}, {}
 
-    for exp_i in range(num_exps):
+    for exp_i in range(cfg.num_exps):
         key, subkey = split(key)
         print(f"simulating experiment: {exp_i + 1}")
         (
@@ -42,18 +39,17 @@ def simulate_all_experiments(
             exp_expected_rewards,
         ) = simulate_fly_experiment(
             key,
+            cfg,
             winit,
             plasticity_coeff,
             plasticity_func,
             mus,
             sigmas,
-            reward_ratios,
-            trials_per_block,
         )
 
         trial_lengths = [
-            [len(exp_decisions[j][i]) for i in range(trials_per_block)]
-            for j in range(num_blocks)
+            [len(exp_decisions[j][i]) for i in range(cfg.trials_per_block)]
+            for j in range(cfg.num_blocks)
         ]
         longest_trial_length = np.max(np.array(trial_lengths))
 
@@ -76,14 +72,12 @@ def simulate_all_experiments(
 
 def simulate_fly_experiment(
     key,
+    cfg,
     weights,
     plasticity_coeffs,
     plasticity_func,
     odor_mus,
     odor_sigmas,
-    reward_ratios,
-    trials_per_block,
-    moving_avg_window=10,
 ):
     """Simulate a single fly experiment with given plasticity coefficients
     Returns:
@@ -91,19 +85,20 @@ def simulate_fly_experiment(
         lengths corresponding to the number of timesteps in each trial
     """
 
-    num_blocks = len(reward_ratios)
-    r_history = collections.deque(moving_avg_window * [0], maxlen=moving_avg_window)
+    r_history = collections.deque(
+        cfg.moving_avg_window * [0], maxlen=cfg.moving_avg_window
+    )
     rewards_in_arena = np.zeros(
         2,
     )
 
     xs, odors, sampled_ys, rewards, expected_rewards = (
-        create_nested_list(num_blocks, trials_per_block) for _ in range(5)
+        create_nested_list(cfg.num_blocks, cfg.trials_per_block) for _ in range(5)
     )
 
-    for block in range(len(reward_ratios)):
-        r_ratio = reward_ratios[block]
-        for trial in range(trials_per_block):
+    for block in range(cfg.num_blocks):
+        r_ratio = cfg.reward_ratios[block]
+        for trial in range(cfg.trials_per_block):
             key, _ = split(key)
             sampled_rewards = bernoulli(key, np.array(r_ratio))
             rewards_in_arena = np.logical_or(sampled_rewards, rewards_in_arena)

@@ -11,7 +11,6 @@ import time
 
 
 def train(cfg):
-
     coeff_mask = np.array(cfg.coeff_mask)
     key = jax.random.PRNGKey(cfg.seed)
     simulation_coeff, plasticity_func = synapse.init_reward_volterra(init="reward")
@@ -40,14 +39,12 @@ def train(cfg):
         expected_rewards,
     ) = data_loader.simulate_all_experiments(
         key,
-        cfg.num_exps,
+        cfg,
         winit,
         simulation_coeff,
         plasticity_func,
         mus,
         sigmas,
-        cfg.reward_ratios,
-        cfg.trials_per_block,
     )
 
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
@@ -124,7 +121,7 @@ def train(cfg):
             print()
 
         # jax.debug.print("plasticity_coeff: {}", plasticity_coeff)
-    np.savez('explogs', **explogs)
+    np.savez("explogs", **explogs)
     # save loss into file as numpy array
     # np.save("expdata/loss.npy", np.array(loss_t))
     # np.save("expdata/coeff.npy", np.array(coeff_t))
