@@ -1,7 +1,22 @@
+import jax
 import jax.numpy as jnp
 import numpy as np
-import jax
 
+
+def generate_gaussian(key, shape, scale=0.1):
+    """
+    returns a random normal tensor of specified shape with zero mean and
+    'scale' variance
+    """
+    assert type(shape) is tuple, "shape passed must be a tuple"
+    return scale * jax.random.normal(key, shape)
+
+
+def generate_random_connectivity(key, m, n, sparsity):
+    """
+    returns a random binary connectivity mask of shape [M x N]
+    with a specific connectivity sparseness
+    """
 
 def create_nested_list(num_outer, num_inner):
     return [[[] for _ in range(num_inner)] for _ in range(num_outer)]
@@ -33,6 +48,19 @@ def experiment_list_to_tensor(longest_trial_length, nested_list, list_type):
     return jnp.array(tensor)
 
 
-def truncated_sigmoid(x):
-    epsilon = 1e-6
+def coeff_logs_to_dict(coeff_logs, coeff_mask):
+    """Converts coeff_logs to a dictionary with keys corresponding to
+    the plasticity coefficient names (A_ijk), for i,j,k where coeff_mask[i,j,k] = 1
+    """
+    coeff_dict = {}
+    for i in range(3):
+        for j in range(3):
+            for k in range(3):
+                if coeff_mask[i, j, k] == 1:
+                    coeff_dict[f"A_{i}{j}{k}"] = coeff_logs[:,i, j, k]
+
+    return coeff_dict
+
+
+def truncated_sigmoid(x, epsilon=1e-6):
     return jnp.clip(jax.nn.sigmoid(x), epsilon, 1 - epsilon)

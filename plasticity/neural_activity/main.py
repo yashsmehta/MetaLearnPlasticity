@@ -1,9 +1,11 @@
 import jax
 import jax.numpy as jnp
-from plasticity import inputs, utils, synapse, network, losses
+from plasticity import inputs, synapse, network, losses
 import optax
 from tqdm import tqdm
 import time
+
+from plasticity.behavior import utils
 
 
 if __name__ == "__main__":

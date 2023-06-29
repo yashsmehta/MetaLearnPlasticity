@@ -1,8 +1,10 @@
 import jax.numpy as jnp
 import jax
 from jax import vmap
-from plasticity import losses, synapse, utils, inputs, network
+from plasticity import losses, synapse, inputs, network
 import unittest
+
+from plasticity.behavior import utils
 
 
 class TestTrainingLoop(unittest.TestCase):

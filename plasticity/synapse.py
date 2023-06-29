@@ -1,4 +1,4 @@
-from plasticity.utils import generate_gaussian
+from plasticity.behavior.utils import generate_gaussian
 import jax.numpy as jnp
 import numpy as np
 
