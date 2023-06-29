@@ -1,5 +1,7 @@
+from plasticity.behavior import utils
 import plasticity.inputs as inputs
-from plasticity import utils, synapse
+from plasticity import synapse
+from plasticity.behavior.utils import coeff_logs_to_dict
 import plasticity.behavior.data_loader as data_loader
 import plasticity.behavior.losses as losses
 import jax
@@ -7,6 +9,8 @@ import jax.numpy as jnp
 import optax
 import numpy as np
 from jax.random import split
+from pathlib import Path
+import pandas as pd
 import time
 
 
@@ -50,7 +54,7 @@ def train(cfg):
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(plasticity_coeff)
-    explogs = {"coeffs": [], "weights": []}
+    coeff_logs, epoch_logs = [], []
 
     for epoch in range(cfg.num_epochs):
         for exp_i in range(cfg.num_exps):
@@ -105,7 +109,7 @@ def train(cfg):
         if np.isnan(loss):
             print("loss is nan!")
             break
-        if epoch % 25 == 0:
+        if epoch % cfg.log_interval == 0:
             print(f"epoch :{epoch}")
             print(f"loss :{loss}")
             print(
@@ -114,14 +118,26 @@ def train(cfg):
                 plasticity_coeff[0, 1, 0],
                 plasticity_coeff[0, 0, 0],
             )
-            explogs["coeffs"].append(plasticity_coeff)
-            # print(
-            #     plasticity_coeff
-            # )
             print()
+            coeff_logs.append(plasticity_coeff)
+            epoch_logs.append(epoch)
 
-        # jax.debug.print("plasticity_coeff: {}", plasticity_coeff)
-    np.savez("explogs", **explogs)
-    # save loss into file as numpy array
-    # np.save("expdata/loss.npy", np.array(loss_t))
-    # np.save("expdata/coeff.npy", np.array(coeff_t))
+    coeff_logs = np.array(coeff_logs)
+    expdata = coeff_logs_to_dict(coeff_logs, coeff_mask)
+    expdata["epoch"] = epoch_logs
+    df = pd.DataFrame.from_dict(expdata)
+
+    for key, value in cfg.items():
+        if(isinstance(value, (float, int))):
+            df[key] = value
+            print(key, value)
+    pd.set_option("display.max_columns", None)
+    print(df.tail(5))
+
+    if cfg.log_expdata:
+        logdata_path = Path(cfg.log_dir) / f"{cfg.exp_name}"
+        logdata_path.mkdir(parents=True, exist_ok=True)
+
+        csv_file = logdata_path / "logs.csv"
+        write_header = not csv_file.exists()
+        df.to_csv(csv_file, mode="a", header=write_header)
