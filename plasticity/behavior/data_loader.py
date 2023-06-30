@@ -10,7 +10,7 @@ from plasticity.behavior.utils import create_nested_list
 from plasticity import inputs
 
 
-def simulate_all_experiments(
+def generate_experiments_data(
     key,
     cfg,
     winit,
@@ -37,7 +37,7 @@ def simulate_all_experiments(
             exp_decisions,
             exp_rewards,
             exp_expected_rewards,
-        ) = simulate_fly_experiment(
+        ) = generate_experiment(
             key,
             cfg,
             winit,
@@ -70,7 +70,7 @@ def simulate_all_experiments(
     return xs, odors, decisions, rewards, expected_rewards
 
 
-def simulate_fly_experiment(
+def generate_experiment(
     key,
     cfg,
     weights,
@@ -104,7 +104,7 @@ def simulate_fly_experiment(
             rewards_in_arena = np.logical_or(sampled_rewards, rewards_in_arena)
             key, _ = split(key)
 
-            trial_data, weights, rewards_in_arena, r_history = simulate_fly_trial(
+            trial_data, weights, rewards_in_arena, r_history = generate_trial(
                 key,
                 weights,
                 plasticity_coeffs,
@@ -125,7 +125,7 @@ def simulate_fly_experiment(
     return xs, odors, sampled_ys, rewards, expected_rewards
 
 
-def simulate_fly_trial(
+def generate_trial(
     key,
     weights,
     plasticity_coeffs,

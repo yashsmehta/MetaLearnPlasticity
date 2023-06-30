@@ -41,7 +41,7 @@ def train(cfg):
         decisions,
         rewards,
         expected_rewards,
-    ) = data_loader.simulate_all_experiments(
+    ) = data_loader.generate_experiments_data(
         key,
         cfg,
         winit,
@@ -50,6 +50,7 @@ def train(cfg):
         mus,
         sigmas,
     )
+
 
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)
@@ -67,24 +68,6 @@ def train(cfg):
             logits_mask = np.ones(decisions[str(exp_i)].shape)
             for j, length in enumerate(trial_lengths):
                 logits_mask[j][length:] = 0
-
-            # debug
-            # print("trial lengths: \n", trial_lengths)
-            # print("odors: \n", odors[str(exp_i)])
-            # print("logits mask: \n", logits_mask)
-            # loss = losses.celoss(
-            #     winit,
-            #     plasticity_coeff,
-            #     plasticity_func,
-            #     xs[str(exp_i)],
-            #     rewards[str(exp_i)],
-            #     expected_rewards[str(exp_i)],
-            #     decisions[str(exp_i)],
-            #     trial_lengths,
-            #     logits_mask,
-            #     coeff_mask,
-            # )
-            # exit()
 
             loss, meta_grads = loss_value_and_grad(
                 winit,
