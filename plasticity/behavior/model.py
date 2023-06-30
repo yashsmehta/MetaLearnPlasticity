@@ -31,10 +31,10 @@ def simulate(
             trial_length,
         )
 
-    final_weights, logits = jax.lax.scan(
+    final_weights, (tensors, logits) = jax.lax.scan(
         step, initial_weights, (xs, rewards, expected_rewards, trial_lengths)
     )
-    return jnp.squeeze(logits), final_weights
+    return jnp.squeeze(logits), tensors
 
 
 def network_step(
@@ -59,7 +59,7 @@ def network_step(
     )
     weights += dw
 
-    return weights, logits
+    return weights, (weights, logits)
 
 
 def weight_update(
