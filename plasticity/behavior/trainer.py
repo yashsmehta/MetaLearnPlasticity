@@ -4,6 +4,7 @@ from plasticity import synapse
 from plasticity.behavior.utils import coeff_logs_to_dict
 import plasticity.behavior.data_loader as data_loader
 import plasticity.behavior.losses as losses
+import plasticity.behavior.model as model
 import jax
 import jax.numpy as jnp
 import optax
@@ -50,7 +51,6 @@ def train(cfg):
         mus,
         sigmas,
     )
-
 
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)
@@ -105,15 +105,27 @@ def train(cfg):
             coeff_logs.append(plasticity_coeff)
             epoch_logs.append(epoch)
 
+    # TODO: calculate R2 score, KL divergence, etc.
+    model.evaluate(
+        key,
+        cfg,
+        simulation_coeff,
+        plasticity_coeff,
+        plasticity_func,
+        mus,
+        sigmas,
+    )
+
     coeff_logs = np.array(coeff_logs)
     expdata = coeff_logs_to_dict(coeff_logs, coeff_mask)
     expdata["epoch"] = epoch_logs
     df = pd.DataFrame.from_dict(expdata)
 
     for key, value in cfg.items():
-        if(isinstance(value, (float, int))):
+        if isinstance(value, (float, int)):
             df[key] = value
-            print(key, value)
+            # print(key, value)
+
     pd.set_option("display.max_columns", None)
     print(df.tail(5))
 

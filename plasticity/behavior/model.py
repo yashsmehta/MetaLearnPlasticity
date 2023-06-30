@@ -2,6 +2,8 @@ import jax.numpy as jnp
 import jax
 from jax import vmap
 from jax.lax import reshape
+import plasticity.behavior.data_loader as data_loader
+import plasticity.behavior.utils as utils
 
 
 def simulate(
@@ -15,8 +17,13 @@ def simulate(
 ):
     """Simulate an experiment with given plasticity coefficients,
        vmap over timesteps within a trial, and scan over all trials
+
     Returns:
-        a tensor of logits for the experiment, and the final weights
+        a tensor of logits for the experiment, and the weight_tensors,
+        i.e. the weights at each trial.
+        shapes:
+            logits: (total_trials, max_trial_length)
+            weight tensor: (total_trials, input_dim, output_dim)
     """
 
     def step(weights, stimulus):
@@ -31,10 +38,10 @@ def simulate(
             trial_length,
         )
 
-    final_weights, (tensors, logits) = jax.lax.scan(
+    final_weights, (weight_tensors, logits) = jax.lax.scan(
         step, initial_weights, (xs, rewards, expected_rewards, trial_lengths)
     )
-    return jnp.squeeze(logits), tensors
+    return jnp.squeeze(logits), weight_tensors
 
 
 def network_step(
@@ -49,7 +56,7 @@ def network_step(
     """Performs a forward pass and weight update
         Forward pass is needed to compute logits for the loss function
     Returns:
-        updated weights and logits
+        updated weights, and stacked: weights, logits
     """
     vmapped_forward = vmap(lambda weights, x: jnp.dot(x, weights), (None, 0))
     logits = vmapped_forward(weights, input)
@@ -91,3 +98,59 @@ def weight_update(
         while adding"
 
     return dw
+
+
+def evaluate(
+    key, cfg, simulation_coeff, plasticity_coeff, plasticity_func, mus, sigmas
+):
+    """Evaluate the plasticity coefficients on a single experiment
+    Returns:
+        r2 score between weights
+        kl_divergence between:
+            logits calculated with simulation_coeff
+            logits calculated with plasticity_coeff
+    """
+
+    test_cfg = cfg.copy()
+    test_cfg.num_exps = 1
+    winit = utils.generate_gaussian(key, (cfg.input_dim, cfg.output_dim), scale=0.01)
+
+    (
+        xs,
+        odors,
+        decisions,
+        rewards,
+        expected_rewards,
+    ) = data_loader.generate_experiments_data(
+        key,
+        test_cfg,
+        winit,
+        simulation_coeff,
+        plasticity_func,
+        mus,
+        sigmas,
+    )
+    trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions["0"])), axis=1).astype(
+        int
+    )
+
+    logits_true, weight_tensors_true = simulate(
+        winit,
+        simulation_coeff,
+        plasticity_func,
+        xs["0"],
+        rewards["0"],
+        expected_rewards["0"],
+        trial_lengths,
+    )
+
+    logits, weight_tensors = simulate(
+        winit,
+        plasticity_coeff,
+        plasticity_func,
+        xs["0"],
+        rewards["0"],
+        expected_rewards["0"],
+        trial_lengths,
+    )
+    return
