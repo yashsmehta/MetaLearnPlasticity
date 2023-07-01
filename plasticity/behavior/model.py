@@ -19,7 +19,7 @@ def simulate(
        vmap over timesteps within a trial, and scan over all trials
 
     Returns:
-        a tensor of logits for the experiment, and the weight_tensors,
+        a tensor of logits for the experiment, and the weight_trajec,
         i.e. the weights at each trial.
         shapes:
             logits: (total_trials, max_trial_length)
@@ -38,10 +38,10 @@ def simulate(
             trial_length,
         )
 
-    final_weights, (weight_tensors, logits) = jax.lax.scan(
+    final_weights, (weight_trajec, logits) = jax.lax.scan(
         step, initial_weights, (xs, rewards, expected_rewards, trial_lengths)
     )
-    return jnp.squeeze(logits), weight_tensors
+    return jnp.squeeze(logits), weight_trajec
 
 
 def network_step(
@@ -103,12 +103,11 @@ def weight_update(
 def evaluate(
     key, cfg, simulation_coeff, plasticity_coeff, plasticity_func, mus, sigmas
 ):
-    """Evaluate the plasticity coefficients on a single experiment
+    """Evaluate logits, weight trajectory for simulation_coeff and plasticity_coeff
+       with new initial weights, for a single new experiment
     Returns:
-        r2 score between weights
-        kl_divergence between:
-            logits calculated with simulation_coeff
-            logits calculated with plasticity_coeff
+        logits, model_logits: (total_trials, longest_trial), 
+        weight_trajec, model_weight_trajec: (total_trials, input_dim, output_dim)
     """
 
     test_cfg = cfg.copy()
@@ -134,7 +133,7 @@ def evaluate(
         int
     )
 
-    logits_true, weight_tensors_true = simulate(
+    logits, weight_trajec = simulate(
         winit,
         simulation_coeff,
         plasticity_func,
@@ -144,7 +143,7 @@ def evaluate(
         trial_lengths,
     )
 
-    logits, weight_tensors = simulate(
+    model_logits, model_weight_trajec = simulate(
         winit,
         plasticity_coeff,
         plasticity_func,
@@ -153,4 +152,4 @@ def evaluate(
         expected_rewards["0"],
         trial_lengths,
     )
-    return
+    return (logits, weight_trajec), (model_logits, model_weight_trajec)

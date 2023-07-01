@@ -1,6 +1,8 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
+import sklearn.metrics
+from scipy.special import kl_div
 
 
 def generate_gaussian(key, shape, scale=0.1):
@@ -17,6 +19,23 @@ def generate_random_connectivity(key, m, n, sparsity):
     returns a random binary connectivity mask of shape [M x N]
     with a specific connectivity sparseness
     """
+
+
+def r2_score(tensor1, tensor2):
+    tensor1 = tensor1.reshape(tensor1.shape[0], -1)
+    tensor2 = tensor2.reshape(tensor2.shape[0], -1)
+    return sklearn.metrics.r2_score(tensor1, tensor2)
+
+
+def kl_divergence(logits1, logits2):
+    """
+    computes the KL divergence between two probability distributions,
+    p and q would be logits
+    """
+    p = jax.nn.softmax(logits1)
+    q = jax.nn.softmax(logits2)
+    kl_matrix = kl_div(p, q)
+    return np.sum(kl_matrix)
 
 def create_nested_list(num_outer, num_inner):
     return [[[] for _ in range(num_inner)] for _ in range(num_outer)]
@@ -57,7 +76,7 @@ def coeff_logs_to_dict(coeff_logs, coeff_mask):
         for j in range(3):
             for k in range(3):
                 if coeff_mask[i, j, k] == 1:
-                    coeff_dict[f"A_{i}{j}{k}"] = coeff_logs[:,i, j, k]
+                    coeff_dict[f"A_{i}{j}{k}"] = coeff_logs[:, i, j, k]
 
     return coeff_dict
 

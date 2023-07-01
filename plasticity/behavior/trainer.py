@@ -18,8 +18,8 @@ import time
 def train(cfg):
     coeff_mask = np.array(cfg.coeff_mask)
     key = jax.random.PRNGKey(cfg.seed)
-    simulation_coeff, plasticity_func = synapse.init_reward_volterra(init="reward")
-    plasticity_coeff, _ = synapse.init_reward_volterra(init="zeros")
+    generation_coeff, plasticity_func = synapse.init_reward_volterra(init="reward-with-decay")
+    plasticity_coeff, _ = synapse.init_reward_volterra(init="reward")
 
     key, _ = split(key)
 
@@ -46,7 +46,7 @@ def train(cfg):
         key,
         cfg,
         winit,
-        simulation_coeff,
+        generation_coeff,
         plasticity_func,
         mus,
         sigmas,
@@ -105,16 +105,20 @@ def train(cfg):
             coeff_logs.append(plasticity_coeff)
             epoch_logs.append(epoch)
 
-    # TODO: calculate R2 score, KL divergence, etc.
-    model.evaluate(
+    (logits, weight_trajec), (model_logits, model_weight_trajec) = model.evaluate(
         key,
         cfg,
-        simulation_coeff,
+        generation_coeff,
         plasticity_coeff,
         plasticity_func,
         mus,
         sigmas,
     )
+    r2_score = utils.r2_score(weight_trajec, model_weight_trajec)
+    kl_div = utils.kl_divergence(logits, model_logits)
+    print(f"r2 score: {r2_score}")
+    print(f"kl divergence: {kl_div}")
+    exit()
 
     coeff_logs = np.array(coeff_logs)
     expdata = coeff_logs_to_dict(coeff_logs, coeff_mask)
