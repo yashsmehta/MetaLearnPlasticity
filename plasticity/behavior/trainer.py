@@ -36,21 +36,23 @@ def train(cfg):
     print("layer size: [{}, {}]".format(cfg.input_dim, cfg.output_dim))
     print()
 
-    (
-        xs,
-        odors,
-        decisions,
-        rewards,
-        expected_rewards,
-    ) = data_loader.generate_experiments_data(
-        key,
-        cfg,
-        winit,
-        generation_coeff,
-        plasticity_func,
-        mus,
-        sigmas,
-    )
+    # (
+    #     xs,
+    #     odors,
+    #     decisions,
+    #     rewards,
+    #     expected_rewards,
+    # ) = data_loader.generate_experiments_data(
+    #     key,
+    #     cfg,
+    #     winit,
+    #     generation_coeff,
+    #     plasticity_func,
+    #     mus,
+    #     sigmas,
+    # )
+    xs, decisions, rewards, expected_rewards = data_loader.load_adi_expdata(cfg)
+    print("loaded data")
 
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)
@@ -118,7 +120,6 @@ def train(cfg):
     kl_div = utils.kl_divergence(logits, model_logits)
     print(f"r2 score: {r2_score}")
     print(f"kl divergence: {kl_div}")
-    exit()
 
     coeff_logs = np.array(coeff_logs)
     expdata = coeff_logs_to_dict(coeff_logs, coeff_mask)
