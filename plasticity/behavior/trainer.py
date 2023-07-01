@@ -18,8 +18,8 @@ import time
 def train(cfg):
     coeff_mask = np.array(cfg.coeff_mask)
     key = jax.random.PRNGKey(cfg.seed)
-    generation_coeff, plasticity_func = synapse.init_reward_volterra(init="reward-with-decay")
-    plasticity_coeff, _ = synapse.init_reward_volterra(init="reward")
+    generation_coeff, plasticity_func = synapse.init_reward_volterra(init="reward")
+    plasticity_coeff, _ = synapse.init_reward_volterra(init="zeros")
 
     key, _ = split(key)
 
@@ -34,25 +34,27 @@ def train(cfg):
     device = jax.lib.xla_bridge.get_backend().platform
     print("platform: ", device)
     print("layer size: [{}, {}]".format(cfg.input_dim, cfg.output_dim))
-    print()
 
-    # (
-    #     xs,
-    #     odors,
-    #     decisions,
-    #     rewards,
-    #     expected_rewards,
-    # ) = data_loader.generate_experiments_data(
-    #     key,
-    #     cfg,
-    #     winit,
-    #     generation_coeff,
-    #     plasticity_func,
-    #     mus,
-    #     sigmas,
-    # )
-    xs, decisions, rewards, expected_rewards = data_loader.load_adi_expdata(cfg)
-    print("loaded data")
+    if cfg.use_experimental_data:
+        xs, decisions, rewards, expected_rewards = data_loader.load_adi_expdata(cfg)
+    else:
+        (
+            xs,
+            odors,
+            decisions,
+            rewards,
+            expected_rewards,
+        ) = data_loader.generate_experiments_data(
+            key,
+            cfg,
+            winit,
+            generation_coeff,
+            plasticity_func,
+            mus,
+            sigmas,
+        )
+
+    print("got training data!")
 
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)
@@ -70,6 +72,20 @@ def train(cfg):
             logits_mask = np.ones(decisions[str(exp_i)].shape)
             for j, length in enumerate(trial_lengths):
                 logits_mask[j][length:] = 0
+
+            # loss = losses.celoss(
+            #     winit,
+            #     plasticity_coeff,
+            #     plasticity_func,
+            #     xs[str(exp_i)],
+            #     rewards[str(exp_i)],
+            #     expected_rewards[str(exp_i)],
+            #     decisions[str(exp_i)],
+            #     trial_lengths,
+            #     logits_mask,
+            #     coeff_mask,
+            # )
+            # exit()
 
             loss, meta_grads = loss_value_and_grad(
                 winit,
