@@ -17,14 +17,14 @@ import time
 
 def train(cfg):
     coeff_mask = np.array(cfg.coeff_mask)
-    key = jax.random.PRNGKey(cfg.seed)
+    key = jax.random.PRNGKey(cfg.jobid)
     generation_coeff, plasticity_func = synapse.init_reward_volterra(init="reward")
     plasticity_coeff, _ = synapse.init_reward_volterra(init="zeros")
 
     key, _ = split(key)
 
     # winit = jnp.zeros((input_dim, output_dim))
-    winit = utils.generate_gaussian(key, (cfg.input_dim, cfg.output_dim), scale=0.01)
+    winit = utils.generate_gaussian(key, (cfg.input_dim, cfg.output_dim), scale=0.1)
     print(f"initial weights: \n{winit}")
     key, _ = split(key)
 
@@ -113,12 +113,14 @@ def train(cfg):
         if epoch % cfg.log_interval == 0:
             print(f"epoch :{epoch}")
             print(f"loss :{loss}")
-            print(
-                plasticity_coeff[1, 1, 0],
-                plasticity_coeff[1, 0, 0],
-                plasticity_coeff[0, 1, 0],
-                plasticity_coeff[0, 0, 0],
-            )
+            # print(
+            #     plasticity_coeff[1, 1, 0],
+            #     plasticity_coeff[1, 0, 0],
+            #     plasticity_coeff[0, 1, 0],
+            #     plasticity_coeff[0, 0, 0],
+            #     plasticity_coeff[0, 0, 1],
+            # )
+            print(plasticity_coeff[:, :, 0])
             print()
             coeff_logs.append(plasticity_coeff)
             epoch_logs.append(epoch)
