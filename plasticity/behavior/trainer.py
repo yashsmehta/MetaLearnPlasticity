@@ -140,6 +140,7 @@ def train(cfg):
     expdata = coeff_logs_to_dict(coeff_logs, coeff_mask)
     expdata["epoch"] = epoch_logs
     df = pd.DataFrame.from_dict(expdata)
+    df["r2_score"] = r2_score
 
     for key, value in cfg.items():
         if isinstance(value, (float, int)):
@@ -155,4 +156,4 @@ def train(cfg):
 
         csv_file = logdata_path / "logs.csv"
         write_header = not csv_file.exists()
-        df.to_csv(csv_file, mode="a", header=write_header)
+        df.to_csv(csv_file, mode="a", header=write_header, index=False)
