@@ -29,6 +29,7 @@ def train(cfg):
     key, _ = split(key)
 
     mus, sigmas = inputs.generate_binary_input_parameters()
+    # mus, sigmas = inputs.generate_input_parameters(key, cfg.input_dim, num_odors=2, firing_fraction=0.4)
 
     # are we running on CPU or GPU?
     device = jax.lib.xla_bridge.get_backend().platform
@@ -113,15 +114,11 @@ def train(cfg):
         if epoch % cfg.log_interval == 0:
             print(f"epoch :{epoch}")
             print(f"loss :{loss}")
-            # print(
-            #     plasticity_coeff[1, 1, 0],
-            #     plasticity_coeff[1, 0, 0],
-            #     plasticity_coeff[0, 1, 0],
-            #     plasticity_coeff[0, 0, 0],
-            #     plasticity_coeff[0, 0, 1],
-            # )
-            print(plasticity_coeff[:, :, 0])
-            print()
+            indices = coeff_mask.nonzero()
+            ind_i, ind_j, ind_k = indices
+            for index in zip(ind_i, ind_j, ind_k):
+                print(f"A{index}", plasticity_coeff[index])
+            print("\n")
             coeff_logs.append(plasticity_coeff)
             epoch_logs.append(epoch)
 
