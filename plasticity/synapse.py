@@ -39,8 +39,8 @@ def init_reward(parameters):
 
 
 def init_reward_with_decay(parameters):
-    parameters[1][1][0] = 1
-    parameters[0][0][1] = -0.1
+    parameters[1][1][0] = 0.2
+    parameters[0][0][1] = -0.03
     return parameters
 
 
