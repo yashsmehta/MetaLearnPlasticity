@@ -67,16 +67,16 @@ def experiment_list_to_tensor(longest_trial_length, nested_list, list_type):
     return jnp.array(tensor)
 
 
-def coeff_logs_to_dict(coeff_logs, coeff_mask):
+def coeff_logs_to_dict(coeff_logs):
     """Converts coeff_logs to a dictionary with keys corresponding to
-    the plasticity coefficient names (A_ijk), for i,j,k where coeff_mask[i,j,k] = 1
+    the plasticity coefficient names (A_ijk)
     """
     coeff_dict = {}
     for i in range(3):
         for j in range(3):
             for k in range(3):
-                if coeff_mask[i, j, k] == 1:
-                    coeff_dict[f"A_{i}{j}{k}"] = coeff_logs[:, i, j, k]
+                # if coeff_mask[i, j, k] == 1:
+                coeff_dict[f"A_{i}{j}{k}"] = coeff_logs[:, i, j, k]
 
     return coeff_dict
 
