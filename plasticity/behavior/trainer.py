@@ -156,11 +156,11 @@ def train(cfg):
     if cfg.log_expdata:
         logdata_path = Path(cfg.log_dir)
         if(cfg.use_experimental_data):
-            logdata_path = logdata_path / "expdata"
+            logdata_path = logdata_path / "expdata" / cfg.exp_name
         else:
-            logdata_path = logdata_path / "simdata"
+            logdata_path = logdata_path / "simdata" / cfg.exp_name
 
         logdata_path.mkdir(parents=True, exist_ok=True)
-        csv_file = logdata_path / f"{cfg.exp_name}.csv"
+        csv_file = logdata_path / f"exp_{cfg.jobid}.csv"
         write_header = not csv_file.exists()
         df.to_csv(csv_file, mode="a", header=write_header, index=False)
