@@ -236,3 +236,50 @@ def load_adi_expdata(cfg):
         expected_rewards[str(exp_i)] = expected_reward_for_exp_data(R, cfg.moving_avg_window)
 
     return xs, decisions, rewards, expected_rewards
+
+
+def load_single_adi_experiment(cfg):
+    
+    exp_i = 0
+    element_dim = 2
+
+    xs, decisions, rewards, expected_rewards = {}, {}, {}, {}
+    file = f"Fly{cfg.jobid}.mat"
+    data = sio.loadmat(cfg.data_dir + file)
+    X, Y, R = data["X"], data["Y"], data["R"]
+    Y = np.squeeze(Y)
+    R = np.squeeze(R)
+    num_trials = np.sum(Y)
+    assert num_trials == R.shape[0], "Y and R should have the same number of trials"
+
+    # remove last element, and append left to get indices.
+    indices = np.cumsum(Y)
+    indices = np.insert(indices, 0, 0)
+    indices = np.delete(indices, -1)
+
+    exp_decisions = [[] for _ in range(num_trials)]
+    exp_xs = [[] for _ in range(num_trials)]
+
+    for index, decision, x in zip(indices, Y, X):
+        exp_decisions[index].append(decision)
+        exp_xs[index].append(x)
+
+    trial_lengths = [len(exp_decisions[i]) for i in range(num_trials)]
+    longest_trial_length = np.max(np.array(trial_lengths))
+
+    d_tensor = np.full((num_trials, longest_trial_length), np.nan)
+    for i in range(num_trials):
+        for j in range(trial_lengths[i]):
+            d_tensor[i][j] = exp_decisions[i][j]
+    decisions[str(exp_i)] = d_tensor
+
+    xs_tensor = np.full((num_trials, longest_trial_length, element_dim), 0)
+    for i in range(num_trials):
+        for j in range(trial_lengths[i]):
+            xs_tensor[i][j] = exp_xs[i][j]
+    xs[str(exp_i)] = xs_tensor
+
+    rewards[str(exp_i)] = R
+    expected_rewards[str(exp_i)] = expected_reward_for_exp_data(R, cfg.moving_avg_window)
+
+    return xs, decisions, rewards, expected_rewards
