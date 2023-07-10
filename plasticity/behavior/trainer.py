@@ -37,7 +37,7 @@ def train(cfg):
     print("layer size: [{}, {}]".format(cfg.input_dim, cfg.output_dim))
 
     if cfg.use_experimental_data:
-        xs, decisions, rewards, expected_rewards = data_loader.load_adi_expdata(cfg)
+        xs, decisions, rewards, expected_rewards = data_loader.load_single_adi_experiment(cfg)
     else:
         (
             xs,
@@ -60,7 +60,7 @@ def train(cfg):
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(plasticity_coeff)
-    coeff_logs, epoch_logs = [], []
+    coeff_logs, epoch_logs, loss_logs = [], [], []
 
     for epoch in range(cfg.num_epochs):
         for exp_i in range(cfg.num_exps):
@@ -121,6 +121,7 @@ def train(cfg):
             print("\n")
             coeff_logs.append(plasticity_coeff)
             epoch_logs.append(epoch)
+            loss_logs.append(loss)
 
     (logits, weight_trajec), (model_logits, model_weight_trajec) = model.evaluate(
         key,
@@ -131,14 +132,16 @@ def train(cfg):
         mus,
         sigmas,
     )
+
     r2_score = utils.r2_score(weight_trajec, model_weight_trajec)
     kl_div = utils.kl_divergence(logits, model_logits)
     print(f"r2 score: {r2_score}")
     print(f"kl divergence: {kl_div}")
 
     coeff_logs = np.array(coeff_logs)
-    expdata = coeff_logs_to_dict(coeff_logs, coeff_mask)
+    expdata = coeff_logs_to_dict(coeff_logs)
     expdata["epoch"] = epoch_logs
+    expdata["loss"] = loss_logs
     df = pd.DataFrame.from_dict(expdata)
     df["r2_score"] = r2_score
 
@@ -151,9 +154,13 @@ def train(cfg):
     print(df.tail(5))
 
     if cfg.log_expdata:
-        logdata_path = Path(cfg.log_dir) / f"{cfg.exp_name}"
-        logdata_path.mkdir(parents=True, exist_ok=True)
+        logdata_path = Path(cfg.log_dir)
+        if(cfg.use_experimental_data):
+            logdata_path = logdata_path / "expdata"
+        else:
+            logdata_path = logdata_path / "simdata"
 
-        csv_file = logdata_path / "logs.csv"
+        logdata_path.mkdir(parents=True, exist_ok=True)
+        csv_file = logdata_path / f"{cfg.exp_name}.csv"
         write_header = not csv_file.exists()
         df.to_csv(csv_file, mode="a", header=write_header, index=False)
