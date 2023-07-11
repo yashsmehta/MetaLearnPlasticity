@@ -25,11 +25,10 @@ def train(cfg):
 
     # winit = jnp.zeros((input_dim, output_dim))
     winit = utils.generate_gaussian(key, (cfg.input_dim, cfg.output_dim), scale=0.1)
-    print(f"initial weights: \n{winit}")
     key, _ = split(key)
 
-    mus, sigmas = inputs.generate_binary_input_parameters()
-    # mus, sigmas = inputs.generate_input_parameters(key, cfg.input_dim, num_odors=2, firing_fraction=0.4)
+    # mus, sigmas = inputs.generate_binary_input_parameters()
+    mus, sigmas = inputs.generate_input_parameters(key, cfg.input_dim, num_odors=2, firing_fraction=0.5)
 
     # are we running on CPU or GPU?
     device = jax.lib.xla_bridge.get_backend().platform
