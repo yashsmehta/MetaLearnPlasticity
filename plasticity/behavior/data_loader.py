@@ -15,7 +15,7 @@ from plasticity import inputs
 def generate_experiments_data(
     key,
     cfg,
-    winit,
+    params,
     plasticity_coeff,
     plasticity_func,
     mus,
@@ -43,7 +43,7 @@ def generate_experiments_data(
         ) = generate_experiment(
             key,
             cfg,
-            winit,
+            params,
             plasticity_coeff,
             plasticity_func,
             mus,
@@ -76,7 +76,7 @@ def generate_experiments_data(
 def generate_experiment(
     key,
     cfg,
-    weights,
+    params,
     plasticity_coeffs,
     plasticity_func,
     odor_mus,
@@ -107,9 +107,9 @@ def generate_experiment(
             rewards_in_arena = np.logical_or(sampled_rewards, rewards_in_arena)
             key, _ = split(key)
 
-            trial_data, weights, rewards_in_arena, r_history = generate_trial(
+            trial_data, params, rewards_in_arena, r_history = generate_trial(
                 key,
-                weights,
+                params,
                 plasticity_coeffs,
                 plasticity_func,
                 rewards_in_arena,
@@ -130,7 +130,7 @@ def generate_experiment(
 
 def generate_trial(
     key,
-    weights,
+    params,
     plasticity_coeffs,
     plasticity_func,
     rewards_in_arena,
@@ -153,7 +153,7 @@ def generate_trial(
         odor = int(bernoulli(key, 0.5))
         trial_odors.append(odor)
         x = inputs.sample_inputs(subkey, odor_mus, odor_sigmas, odor)
-        prob_output = sigmoid(jnp.dot(x, weights))
+        prob_output = sigmoid(jnp.dot(x, params))
         key, subkey = split(key)
         sampled_output = float(bernoulli(subkey, prob_output))
 
@@ -165,14 +165,14 @@ def generate_trial(
             r_history.appendleft(reward)
             rewards_in_arena[odor] = 0
             dw = model.weight_update(
-                x, weights, plasticity_coeffs, plasticity_func, reward, expected_reward
+                x, params, plasticity_coeffs, plasticity_func, reward, expected_reward
             )
-            weights += dw
+            params += dw
             break
 
     return (
         (input_xs, trial_odors, decisions, reward, expected_reward),
-        weights,
+        params,
         rewards_in_arena,
         r_history,
     )

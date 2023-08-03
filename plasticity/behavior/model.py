@@ -7,7 +7,7 @@ import plasticity.behavior.utils as utils
 
 
 def simulate(
-    initial_weights,
+    initial_params,
     plasticity_coeffs,
     plasticity_func,
     xs,
@@ -20,17 +20,17 @@ def simulate(
 
     Returns:
         a tensor of logits for the experiment, and the weight_trajec,
-        i.e. the weights at each trial.
+        i.e. the params at each trial.
         shapes:
             logits: (total_trials, max_trial_length)
             weight tensor: (total_trials, input_dim, output_dim)
     """
 
-    def step(weights, stimulus):
+    def step(params, stimulus):
         x, reward, expected_reward, trial_length = stimulus
         return network_step(
             x,
-            weights,
+            params,
             plasticity_coeffs,
             plasticity_func,
             reward,
@@ -39,14 +39,14 @@ def simulate(
         )
 
     final_weights, (weight_trajec, logits) = jax.lax.scan(
-        step, initial_weights, (xs, rewards, expected_rewards, trial_lengths)
+        step, initial_params, (xs, rewards, expected_rewards, trial_lengths)
     )
     return jnp.squeeze(logits), weight_trajec
 
 
 def network_step(
     input,
-    weights,
+    params,
     plasticity_coeffs,
     plasticity_func,
     reward,
@@ -56,29 +56,29 @@ def network_step(
     """Performs a forward pass and weight update
         Forward pass is needed to compute logits for the loss function
     Returns:
-        updated weights, and stacked: weights, logits
+        updated params, and stacked: params, logits
     """
-    vmapped_forward = vmap(lambda weights, x: jnp.dot(x, weights), (None, 0))
-    logits = vmapped_forward(weights, input)
+    vmapped_forward = vmap(lambda params, x: jnp.dot(x, params), (None, 0))
+    logits = vmapped_forward(params, input)
     x = input[trial_length - 1]
     dw = weight_update(
-        x, weights, plasticity_coeffs, plasticity_func, reward, expected_reward
+        x, params, plasticity_coeffs, plasticity_func, reward, expected_reward
     )
-    weights += dw
+    params += dw
 
-    return weights, (weights, logits)
+    return params, (params, logits)
 
 
 def weight_update(
-    x, weights, plasticity_coeffs, plasticity_func, reward, expected_reward
+    x, params, plasticity_coeffs, plasticity_func, reward, expected_reward
 ):
     """Weight update for all synapses in the layer. Uses vmap to vectorize
        plasticity function over all synapses
     Returns:
-        delta weights for the layer
+        delta params for the layer
     """
     reward_term = reward - expected_reward
-    m, n = weights.shape
+    m, n = params.shape
     in_grid, _ = jnp.meshgrid(
         reshape(x, (m,)),
         jnp.ones(
@@ -89,11 +89,11 @@ def weight_update(
 
     vfun = vmap(plasticity_func, in_axes=(0, None, 0, None))
     dw = vmap(vfun, in_axes=(1, None, 1, None), out_axes=1)(
-        in_grid, reward_term, weights, plasticity_coeffs
+        in_grid, reward_term, params, plasticity_coeffs
     )
 
     assert (
-        dw.shape == weights.shape
+        dw.shape == params.shape
     ), "dw and w should be of the same shape to prevent broadcasting \
         while adding"
 
@@ -104,7 +104,7 @@ def evaluate(
     key, cfg, simulation_coeff, plasticity_coeff, plasticity_func, mus, sigmas
 ):
     """Evaluate logits, weight trajectory for simulation_coeff and plasticity_coeff
-       with new initial weights, for a single new experiment
+       with new initial params, for a single new experiment
     Returns:
         logits, model_logits: (total_trials, longest_trial), 
         weight_trajec, model_weight_trajec: (total_trials, input_dim, output_dim)

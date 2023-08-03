@@ -23,8 +23,8 @@ def train(cfg):
 
     key, _ = split(key)
 
-    # winit = jnp.zeros((input_dim, output_dim))
-    winit = utils.generate_gaussian(key, (cfg.input_dim, cfg.output_dim), scale=0.1)
+    # params = jnp.zeros((input_dim, output_dim))
+    params = utils.generate_gaussian(key, (cfg.input_dim, cfg.output_dim), scale=0.1)
     key, _ = split(key)
 
     # mus, sigmas = inputs.generate_binary_input_parameters()
@@ -47,7 +47,7 @@ def train(cfg):
         ) = data_loader.generate_experiments_data(
             key,
             cfg,
-            winit,
+            params,
             generation_coeff,
             plasticity_func,
             mus,
@@ -74,7 +74,7 @@ def train(cfg):
                 logits_mask[j][length:] = 0
 
             # loss = losses.celoss(
-            #     winit,
+            #     params,
             #     plasticity_coeff,
             #     plasticity_func,
             #     xs[str(exp_i)],
@@ -88,7 +88,7 @@ def train(cfg):
             # exit()
 
             loss, meta_grads = loss_value_and_grad(
-                winit,
+                params,
                 plasticity_coeff,
                 plasticity_func,
                 xs[str(exp_i)],
