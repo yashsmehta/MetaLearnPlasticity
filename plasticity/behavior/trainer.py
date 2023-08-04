@@ -28,8 +28,8 @@ def train(cfg):
     params = utils.generate_gaussian(key, (cfg.input_dim + 1, cfg.output_dim), scale=0.1)
     key, _ = split(key)
 
-    # mus, sigmas = inputs.generate_binary_input_parameters()
-    mus, sigmas = inputs.generate_input_parameters(key, cfg.input_dim, num_odors=2, firing_fraction=0.5)
+    mus, sigmas = inputs.generate_binary_input_parameters()
+    # mus, sigmas = inputs.generate_input_parameters(key, cfg.input_dim, num_odors=2, firing_fraction=0.5)
 
     # are we running on CPU or GPU?
     device = jax.lib.xla_bridge.get_backend().platform
@@ -57,9 +57,9 @@ def train(cfg):
 
     print("got training data!")
 
-    loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
+    loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=(0,1))
     optimizer = optax.adam(learning_rate=1e-3)
-    opt_state = optimizer.init(plasticity_coeff)
+    opt_state = optimizer.init((params, plasticity_coeff))
     coeff_logs, epoch_logs, loss_logs = [], [], []
 
     for epoch in range(cfg.num_epochs):
@@ -73,8 +73,8 @@ def train(cfg):
             logits_mask = np.ones(decisions[str(exp_i)].shape)
             for j, length in enumerate(trial_lengths):
                 logits_mask[j][length:] = 0
-
             # loss = losses.celoss(
+
             #     params,
             #     plasticity_coeff,
             #     plasticity_func,
@@ -102,16 +102,22 @@ def train(cfg):
             )
 
             updates, opt_state = optimizer.update(
-                meta_grads, opt_state, plasticity_coeff
+                meta_grads, opt_state, (params, plasticity_coeff)
             )
 
-            plasticity_coeff = optax.apply_updates(plasticity_coeff, updates)
+            params_new, plasticity_coeff = optax.apply_updates((params, plasticity_coeff), updates)
+            # only apply the gradients to the bias term
+            bias_mask = np.zeros((cfg.input_dim + 1, cfg.output_dim))
+            bias_mask[-1] = 1
+            params_new = jnp.multiply(bias_mask, params_new)
+            params = jnp.multiply(params, np.logical_not(bias_mask)) + params_new
 
         # check if loss is nan
         if np.isnan(loss):
             print("loss is nan!")
             break
         if epoch % cfg.log_interval == 0:
+            print("params: ", params)
             print(f"epoch :{epoch}")
             print(f"loss :{loss}")
             indices = coeff_mask.nonzero()
