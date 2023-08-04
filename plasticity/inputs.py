@@ -31,13 +31,15 @@ def generate_input_parameters(key, input_dim, num_odors, firing_fraction):
     return jnp.array(mus), jnp.array(sigmas)
 
 
-def generate_binary_input_parameters():
+def generate_binary_input_parameters(base_noise=0.1):
     """
     return mus, sigmas for binary encoding of 2 odors
     """
-    mus = jnp.identity(2)
-    sigmas = jnp.zeros((2, 2, 2))
-    return mus, sigmas
+    mus = np.identity(2)
+    sigmas = base_noise * np.ones((2, 2, 2))
+    diag_mask = np.expand_dims(np.identity(2), axis=0)
+    sigmas = np.multiply(sigmas, diag_mask)
+    return jnp.array(mus), jnp.array(sigmas)
 
 
 def sample_inputs(key, mus, sigmas, k, scale=0.1):
