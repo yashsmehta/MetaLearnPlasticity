@@ -112,7 +112,8 @@ def evaluate(
 
     test_cfg = cfg.copy()
     test_cfg.num_exps = 1
-    winit = utils.generate_gaussian(key, (cfg.input_dim, cfg.output_dim), scale=0.01)
+    # add a bias term (inherently part of the weight matrix), hence, +1
+    winit = utils.generate_gaussian(key, (cfg.input_dim + 1, cfg.output_dim), scale=0.01)
 
     (
         xs,

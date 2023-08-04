@@ -153,6 +153,8 @@ def generate_trial(
         odor = int(bernoulli(key, 0.5))
         trial_odors.append(odor)
         x = inputs.sample_inputs(subkey, odor_mus, odor_sigmas, odor)
+        # append 1 to x, as a bias term
+        x = jnp.append(x, 1)
         prob_output = sigmoid(jnp.dot(x, params))
         key, subkey = split(key)
         sampled_output = float(bernoulli(subkey, prob_output))

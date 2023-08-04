@@ -24,7 +24,8 @@ def train(cfg):
     key, _ = split(key)
 
     # params = jnp.zeros((input_dim, output_dim))
-    params = utils.generate_gaussian(key, (cfg.input_dim, cfg.output_dim), scale=0.1)
+    # add a bias term (inherently part of the weight matrix), hence, +1
+    params = utils.generate_gaussian(key, (cfg.input_dim + 1, cfg.output_dim), scale=0.1)
     key, _ = split(key)
 
     # mus, sigmas = inputs.generate_binary_input_parameters()
