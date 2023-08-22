@@ -19,7 +19,7 @@ def train(cfg):
     coeff_mask = np.array(cfg.coeff_mask)
     key = jax.random.PRNGKey(cfg.jobid)
     generation_coeff, plasticity_func = synapse.init_reward_volterra(init="reward")
-    plasticity_coeff, _ = synapse.init_reward_volterra(init="zeros")
+    plasticity_coeff, _ = synapse.init_reward_volterra(key, init="zeros")
 
     key, _ = split(key)
 
@@ -28,7 +28,7 @@ def train(cfg):
     params = utils.generate_gaussian(key, (cfg.input_dim + 1, cfg.output_dim), scale=0.1)
     key, _ = split(key)
 
-    mus, sigmas = inputs.generate_binary_input_parameters()
+    mus, sigmas = inputs.generate_binary_input_parameters(base_noise=cfg.base_noise)
     # mus, sigmas = inputs.generate_input_parameters(key, cfg.input_dim, num_odors=2, firing_fraction=0.5)
 
     # are we running on CPU or GPU?
@@ -105,19 +105,18 @@ def train(cfg):
                 meta_grads, opt_state, (params, plasticity_coeff)
             )
 
-            params_new, plasticity_coeff = optax.apply_updates((params, plasticity_coeff), updates)
+            _, plasticity_coeff = optax.apply_updates((params, plasticity_coeff), updates)
             # only apply the gradients to the bias term
-            bias_mask = np.zeros((cfg.input_dim + 1, cfg.output_dim))
-            bias_mask[-1] = 1
-            params_new = jnp.multiply(bias_mask, params_new)
-            params = jnp.multiply(params, np.logical_not(bias_mask)) + params_new
+            # bias_mask = np.zeros((cfg.input_dim + 1, cfg.output_dim))
+            # bias_mask[-1] = 1
+            # params_new = jnp.multiply(bias_mask, params_new)
+            # params = jnp.multiply(params, np.logical_not(bias_mask)) + params_new
 
         # check if loss is nan
         if np.isnan(loss):
             print("loss is nan!")
             break
         if epoch % cfg.log_interval == 0:
-            print("params: ", params)
             print(f"epoch :{epoch}")
             print(f"loss :{loss}")
             indices = coeff_mask.nonzero()

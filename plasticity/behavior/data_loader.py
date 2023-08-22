@@ -264,6 +264,8 @@ def load_single_adi_experiment(cfg):
 
     for index, decision, x in zip(indices, Y, X):
         exp_decisions[index].append(decision)
+        # append 1 to x, for the bias term
+        x = np.append(x, 0)
         exp_xs[index].append(x)
 
     trial_lengths = [len(exp_decisions[i]) for i in range(num_trials)]
@@ -275,7 +277,7 @@ def load_single_adi_experiment(cfg):
             d_tensor[i][j] = exp_decisions[i][j]
     decisions[str(exp_i)] = d_tensor
 
-    xs_tensor = np.full((num_trials, longest_trial_length, element_dim), 0)
+    xs_tensor = np.full((num_trials, longest_trial_length, element_dim+1), 0)
     for i in range(num_trials):
         for j in range(trial_lengths[i]):
             xs_tensor[i][j] = exp_xs[i][j]
