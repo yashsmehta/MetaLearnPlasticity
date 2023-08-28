@@ -14,6 +14,14 @@ from pathlib import Path
 import pandas as pd
 import time
 
+def init_params(key, cfg, scale=0.1):
+    layer_sizes = cfg.layer_sizes
+    initial_params = [
+        (utils.generate_gaussian(key, (m, n), scale), utils.generate_gaussian(key, (n,), scale))
+        for m, n in zip(layer_sizes[:-1], layer_sizes[1:])
+    ]
+    return initial_params
+
 
 def train(cfg):
     coeff_mask = np.array(cfg.coeff_mask)
@@ -21,13 +29,8 @@ def train(cfg):
     generation_coeff, plasticity_func = synapse.init_reward_volterra(init="reward")
     plasticity_coeff, _ = synapse.init_reward_volterra(init="zeros")
 
-    key, _ = split(key)
-
-    # params = jnp.zeros((input_dim, output_dim))
-    params = utils.generate_gaussian(key, (cfg.input_dim, cfg.output_dim), scale=0.1)
-    key, _ = split(key)
-
-    # mus, sigmas = inputs.generate_binary_input_parameters()
+    key, key2 = split(key)
+    initial_params = init_params(key2, cfg)
     mus, sigmas = inputs.generate_input_parameters(key, cfg.input_dim, num_odors=2, firing_fraction=0.5)
 
     # are we running on CPU or GPU?

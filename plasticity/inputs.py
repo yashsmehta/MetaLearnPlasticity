@@ -40,10 +40,10 @@ def generate_binary_input_parameters():
     return mus, sigmas
 
 
-def sample_inputs(key, mus, sigmas, k, scale=0.1):
+def sample_inputs(key, mus, sigmas, k, input_noise=0.1):
 
     # get a normally distributed variable
-    x = scale * jax.random.normal(key, shape=mus[0].shape)
+    x = input_noise * jax.random.normal(key, shape=mus[0].shape)
 
     # shift and scale according to mus[k]
     x = x @ sigmas[k]
