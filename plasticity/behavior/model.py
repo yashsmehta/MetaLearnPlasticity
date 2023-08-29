@@ -5,7 +5,7 @@ from functools import partial
 import plasticity.behavior.data_loader as data_loader
 import plasticity.behavior.utils as utils
 
-@jax.jit
+
 def network_forward(params, inputs):
     """Forward pass for the network
     Returns:
@@ -24,6 +24,7 @@ def network_forward(params, inputs):
     return activations
 
 
+@partial(jax.jit, static_argnums=(2,))
 def simulate(
     initial_params,
     plasticity_coeffs,
@@ -90,7 +91,6 @@ def network_step(
     return params, (params, activations)
 
 
-@partial(jax.jit, static_argnums=(3,))
 def update_params(
     params, activations, plasticity_coeffs, plasticity_func, reward, expected_reward
 ):
