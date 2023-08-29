@@ -1,10 +1,11 @@
 import numpy as np
-import jax.numpy as jnp
+import jax
 from jax.random import bernoulli, split
 from jax.nn import sigmoid
 import collections
 import scipy.io as sio
 import os
+from functools import partial
 
 import plasticity.behavior.model as model
 from plasticity.behavior.utils import experiment_list_to_tensor
@@ -154,7 +155,8 @@ def generate_trial(
         odor = int(bernoulli(key, 0.5))
         trial_odors.append(odor)
         x = inputs.sample_inputs(subkey, odor_mus, odor_sigmas, odor)
-        activations = model.network_forward(params, x)
+        jit_network_forward = jax.jit(model.network_forward)
+        activations = jit_network_forward(params, x)
         prob_output = sigmoid(activations[-1])
 
         key, subkey = split(key)
@@ -167,7 +169,8 @@ def generate_trial(
             reward = rewards_in_arena[odor]
             r_history.appendleft(reward)
             rewards_in_arena[odor] = 0
-            params = model.update_params(
+            jit_update_params = partial(jax.jit, static_argnums=(3,))(model.update_params)
+            params = jit_update_params(
                 params, activations, plasticity_coeffs, plasticity_func, reward, expected_reward
             )
             break
