@@ -56,29 +56,13 @@ def init_oja(parameters):
     return parameters
 
 
-def init_reward_volterra(random_key=None, init=None):
+def init_volterra(random_key=None, init=None):
 
     init_functions = {
         "zeros": init_zeros,
         "random": lambda: init_random(random_key),
         "reward": lambda: init_reward(np.zeros((3, 3, 3))),
         "reward-with-decay": lambda: init_reward_with_decay(np.zeros((3, 3, 3))),
-        "custom": lambda: init_custom(np.zeros((3, 3, 3))),
-    }
-
-    if init not in init_functions:
-        raise RuntimeError(f"init method {init} not implemented")
-
-    parameters = init_functions[init]()
-    return jnp.array(parameters), volterra_plasticity_function
-
-
-def init_volterra(random_key=None, init=None):
-
-    init_functions = {
-        "zeros": init_zeros,
-        "random": lambda: init_random(random_key),
-        "oja": lambda: init_oja(np.zeros((3, 3, 3))),
         "custom": lambda: init_custom(np.zeros((3, 3, 3))),
     }
 
