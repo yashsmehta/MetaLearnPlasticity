@@ -33,7 +33,7 @@ def generate_input_parameters(cfg):
 def sample_inputs(key, mus, sigmas, odor):
 
     input_dim = mus.shape[1]
-    x = jax.random.normal(key, shape=input_dim)
+    x = jax.random.normal(key, shape=(input_dim,))
 
     # shift and scale according to mus[odor]
     x = x @ sigmas[odor]
