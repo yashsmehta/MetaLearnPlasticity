@@ -82,9 +82,9 @@ def network_step(
     """
     activations = jax.vmap(network_forward, in_axes=(None, 0))(params, input)
     # pass only the activations wrt the last odor in trial
-    activations = [a[trial_length - 1] for a in activations]
+    last_odor_activations = [a[trial_length - 1] for a in activations]
     params = update_params(
-        params, activations, plasticity_coeffs, plasticity_func, reward, expected_reward
+        params, last_odor_activations, plasticity_coeffs, plasticity_func, reward, expected_reward
     )
 
     return params, (params, activations)
