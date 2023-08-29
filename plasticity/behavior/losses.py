@@ -11,7 +11,7 @@ def compute_cross_entropy(decisions, logits):
     return jnp.mean(losses)
 
 
-@partial(jax.jit, static_argnames=["plasticity_func"])
+# @partial(jax.jit, static_argnames=["plasticity_func"])
 def celoss(
     params,
     plasticity_coeff,
@@ -36,13 +36,10 @@ def celoss(
         expected_rewards,
         trial_lengths,
     )
-    # print("decisions: \n", decisions)
-    for a in activations:
-        print(a.shape)
-    exit()
+    logits = jnp.squeeze(activations[-1])
+    # mask out the logits after the trial length
     logits = jnp.multiply(logits, logits_mask)
     decisions = jnp.nan_to_num(decisions, copy=False, nan=0)
-    # print("logits: \n", logits)
 
     loss = compute_cross_entropy(decisions, logits)
 
