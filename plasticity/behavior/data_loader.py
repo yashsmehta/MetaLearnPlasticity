@@ -18,8 +18,8 @@ def generate_experiments_data(
     params,
     plasticity_coeff,
     plasticity_func,
-    mus,
-    sigmas,
+    odor_mus,
+    odor_sigmas,
 ):
 
     """Simulate all fly experiments with given plasticity coefficients
@@ -32,7 +32,7 @@ def generate_experiments_data(
     print("generating experiments data...")
 
     for exp_i in range(cfg.num_exps):
-        key, subkey = split(key)
+        key, _ = split(key)
         print(f"simulating experiment: {exp_i + 1}")
         (
             exp_xs,
@@ -46,8 +46,8 @@ def generate_experiments_data(
             params,
             plasticity_coeff,
             plasticity_func,
-            mus,
-            sigmas,
+            odor_mus,
+            odor_sigmas,
         )
 
         trial_lengths = [
@@ -55,6 +55,7 @@ def generate_experiments_data(
             for j in range(cfg.num_blocks)
         ]
         longest_trial_length = np.max(np.array(trial_lengths))
+        print(f"longest trial length: {longest_trial_length}")
 
         xs[str(exp_i)] = experiment_list_to_tensor(
             longest_trial_length, exp_xs, list_type="xs"
@@ -153,7 +154,9 @@ def generate_trial(
         odor = int(bernoulli(key, 0.5))
         trial_odors.append(odor)
         x = inputs.sample_inputs(subkey, odor_mus, odor_sigmas, odor)
-        prob_output = sigmoid(jnp.dot(x, params))
+        activations = model.network_forward(params, x)
+        prob_output = sigmoid(activations[-1])
+
         key, subkey = split(key)
         sampled_output = float(bernoulli(subkey, prob_output))
 
@@ -164,10 +167,9 @@ def generate_trial(
             reward = rewards_in_arena[odor]
             r_history.appendleft(reward)
             rewards_in_arena[odor] = 0
-            dw = model.weight_update(
-                x, params, plasticity_coeffs, plasticity_func, reward, expected_reward
+            params = model.update_params(
+                params, activations, plasticity_coeffs, plasticity_func, reward, expected_reward
             )
-            params += dw
             break
 
     return (

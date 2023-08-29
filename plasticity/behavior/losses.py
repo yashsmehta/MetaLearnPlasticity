@@ -13,7 +13,7 @@ def compute_cross_entropy(decisions, logits):
 
 @partial(jax.jit, static_argnames=["plasticity_func"])
 def celoss(
-    winit,
+    params,
     plasticity_coeff,
     plasticity_func,
     xs,
@@ -27,8 +27,8 @@ def celoss(
 
     plasticity_coeff = jnp.multiply(plasticity_coeff, coeff_mask)
 
-    logits, weight_trajec = model.simulate(
-        winit,
+    logits, params_trajec = model.simulate(
+        params,
         plasticity_coeff,
         plasticity_func,
         xs,

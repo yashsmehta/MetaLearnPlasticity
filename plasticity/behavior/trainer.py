@@ -14,10 +14,14 @@ from pathlib import Path
 import pandas as pd
 import time
 
-def init_params(key, cfg, scale=0.1):
+
+def initialize_params(key, cfg, scale=0.1):
     layer_sizes = cfg.layer_sizes
     initial_params = [
-        (utils.generate_gaussian(key, (m, n), scale), utils.generate_gaussian(key, (n,), scale))
+        (
+            utils.generate_gaussian(key, (m, n), scale),
+            utils.generate_gaussian(key, (n,), scale),
+        )
         for m, n in zip(layer_sizes[:-1], layer_sizes[1:])
     ]
     return initial_params
@@ -26,20 +30,26 @@ def init_params(key, cfg, scale=0.1):
 def train(cfg):
     coeff_mask = np.array(cfg.coeff_mask)
     key = jax.random.PRNGKey(cfg.jobid)
-    generation_coeff, plasticity_func = synapse.init_reward_volterra(init="reward")
-    plasticity_coeff, _ = synapse.init_reward_volterra(init="zeros")
+    generation_coeff, plasticity_func = synapse.init_volterra(init="reward")
+    plasticity_coeff, _ = synapse.init_volterra(init="zeros")
 
     key, key2 = split(key)
-    initial_params = init_params(key2, cfg)
-    mus, sigmas = inputs.generate_input_parameters(key, cfg.input_dim, num_odors=2, firing_fraction=0.5)
+    params = initialize_params(key2, cfg)
+    mus, sigmas = inputs.generate_input_parameters(cfg)
 
     # are we running on CPU or GPU?
     device = jax.lib.xla_bridge.get_backend().platform
     print("platform: ", device)
-    print("layer size: [{}, {}]".format(cfg.input_dim, cfg.output_dim))
+    print(f"layer size: {cfg.layer_sizes}")
+    start = time.time()
 
     if cfg.use_experimental_data:
-        xs, decisions, rewards, expected_rewards = data_loader.load_single_adi_experiment(cfg)
+        (
+            xs,
+            decisions,
+            rewards,
+            expected_rewards,
+        ) = data_loader.load_single_adi_experiment(cfg)
     else:
         (
             xs,
@@ -58,6 +68,8 @@ def train(cfg):
         )
 
     print("got training data!")
+    print(f"took {time.time() - start} seconds")
+    exit()
 
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)
@@ -76,19 +88,18 @@ def train(cfg):
             for j, length in enumerate(trial_lengths):
                 logits_mask[j][length:] = 0
 
-            # loss = losses.celoss(
-            #     params,
-            #     plasticity_coeff,
-            #     plasticity_func,
-            #     xs[str(exp_i)],
-            #     rewards[str(exp_i)],
-            #     expected_rewards[str(exp_i)],
-            #     decisions[str(exp_i)],
-            #     trial_lengths,
-            #     logits_mask,
-            #     coeff_mask,
-            # )
-            # exit()
+            loss = losses.celoss(
+                params,
+                plasticity_coeff,
+                plasticity_func,
+                xs[str(exp_i)],
+                rewards[str(exp_i)],
+                expected_rewards[str(exp_i)],
+                decisions[str(exp_i)],
+                trial_lengths,
+                logits_mask,
+                coeff_mask,
+            )
 
             loss, meta_grads = loss_value_and_grad(
                 params,
@@ -157,7 +168,7 @@ def train(cfg):
 
     if cfg.log_expdata:
         logdata_path = Path(cfg.log_dir)
-        if(cfg.use_experimental_data):
+        if cfg.use_experimental_data:
             logdata_path = logdata_path / "expdata" / cfg.exp_name
         else:
             logdata_path = logdata_path / "simdata" / cfg.exp_name
