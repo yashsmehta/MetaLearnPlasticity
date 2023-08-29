@@ -14,13 +14,6 @@ def generate_gaussian(key, shape, scale=0.1):
     return scale * jax.random.normal(key, shape)
 
 
-def generate_random_connectivity(key, m, n, sparsity):
-    """
-    returns a random binary connectivity mask of shape [M x N]
-    with a specific connectivity sparseness
-    """
-
-
 def r2_score(tensor1, tensor2):
     tensor1 = tensor1.reshape(tensor1.shape[0], -1)
     tensor2 = tensor2.reshape(tensor2.shape[0], -1)
