@@ -30,6 +30,7 @@ def initialize_params(key, cfg, scale=0.1):
 def train(cfg):
     coeff_mask = np.array(cfg.coeff_mask)
     key = jax.random.PRNGKey(cfg.jobid)
+    np.random.seed(cfg.jobid)
     generation_coeff, plasticity_func = synapse.init_volterra(init="reward")
     plasticity_coeff, _ = synapse.init_volterra(init="zeros")
 
@@ -87,19 +88,18 @@ def train(cfg):
             for j, length in enumerate(trial_lengths):
                 logits_mask[j][length:] = 0
 
-            loss = losses.celoss(
-                params,
-                plasticity_coeff,
-                plasticity_func,
-                xs[str(exp_i)],
-                rewards[str(exp_i)],
-                expected_rewards[str(exp_i)],
-                decisions[str(exp_i)],
-                trial_lengths,
-                logits_mask,
-                coeff_mask,
-            )
-            exit()
+            # loss = losses.celoss(
+            #     params,
+            #     plasticity_coeff,
+            #     plasticity_func,
+            #     xs[str(exp_i)],
+            #     rewards[str(exp_i)],
+            #     expected_rewards[str(exp_i)],
+            #     decisions[str(exp_i)],
+            #     trial_lengths,
+            #     logits_mask,
+            #     coeff_mask,
+            # )
 
             loss, meta_grads = loss_value_and_grad(
                 params,
