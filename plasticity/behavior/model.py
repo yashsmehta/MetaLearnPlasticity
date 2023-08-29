@@ -5,7 +5,6 @@ from functools import partial
 import plasticity.behavior.data_loader as data_loader
 import plasticity.behavior.utils as utils
 
-
 @jax.jit
 def network_forward(params, inputs):
     """Forward pass for the network
@@ -64,7 +63,7 @@ def simulate(
     final_params, (params_trajec, activations) = jax.lax.scan(
         step, initial_params, (xs, rewards, expected_rewards, trial_lengths)
     )
-    return activations, params_trajec
+    return params_trajec, activations
 
 
 def network_step(
@@ -81,11 +80,11 @@ def network_step(
     Returns:
         updated params, and stacked: params, logits
     """
-    activations = jax.vmap(network_forward, in_axes=(0, None))(input, params)
-
-    x = input[trial_length - 1]
+    activations = jax.vmap(network_forward, in_axes=(None, 0))(params, input)
+    # pass only the activations wrt the last odor in trial
+    activations = [a[trial_length - 1] for a in activations]
     params = update_params(
-        x, params, plasticity_coeffs, plasticity_func, reward, expected_reward
+        params, activations, plasticity_coeffs, plasticity_func, reward, expected_reward
     )
 
     return params, (params, activations)
@@ -104,6 +103,7 @@ def update_params(
 
     delta_params = []
 
+    # plasticity happens in the first layer only
     activation = activations[0]
     w, b = params[0]
     # vmap over output neurons
@@ -119,7 +119,8 @@ def update_params(
     delta_params.append((dw, db))
 
     # add the last layer of no plasticity
-    delta_params.append((0.0, 0.0))
+    if len(params) > len(delta_params):
+        delta_params.append((0.0, 0.0))
     params = [(w + dw, b + db) for (w, b), (dw, db) in zip(params, delta_params)]
 
     return params

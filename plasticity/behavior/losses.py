@@ -27,7 +27,7 @@ def celoss(
 
     plasticity_coeff = jnp.multiply(plasticity_coeff, coeff_mask)
 
-    logits, params_trajec = model.simulate(
+    params_trajec, activations = model.simulate(
         params,
         plasticity_coeff,
         plasticity_func,
@@ -37,6 +37,9 @@ def celoss(
         trial_lengths,
     )
     # print("decisions: \n", decisions)
+    for a in activations:
+        print(a.shape)
+    exit()
     logits = jnp.multiply(logits, logits_mask)
     decisions = jnp.nan_to_num(decisions, copy=False, nan=0)
     # print("logits: \n", logits)

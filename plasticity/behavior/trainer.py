@@ -69,7 +69,6 @@ def train(cfg):
 
     print("got training data!")
     print(f"took {time.time() - start} seconds")
-    exit()
 
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)
@@ -100,6 +99,7 @@ def train(cfg):
                 logits_mask,
                 coeff_mask,
             )
+            exit()
 
             loss, meta_grads = loss_value_and_grad(
                 params,
