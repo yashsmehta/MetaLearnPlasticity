@@ -15,27 +15,16 @@ import pandas as pd
 import time
 
 
-def initialize_params(key, cfg, scale=0.1):
-    layer_sizes = cfg.layer_sizes
-    initial_params = [
-        (
-            utils.generate_gaussian(key, (m, n), scale),
-            utils.generate_gaussian(key, (n,), scale),
-        )
-        for m, n in zip(layer_sizes[:-1], layer_sizes[1:])
-    ]
-    return initial_params
-
-
 def train(cfg):
+    jax.config.update('jax_platform_name', 'cpu')
     coeff_mask = np.array(cfg.coeff_mask)
     key = jax.random.PRNGKey(cfg.jobid)
     np.random.seed(cfg.jobid)
     generation_coeff, plasticity_func = synapse.init_volterra(init="reward")
-    plasticity_coeff, _ = synapse.init_volterra(init="zeros")
+    plasticity_coeff, _ = synapse.init_volterra(key, init="reward")
 
     key, key2 = split(key)
-    params = initialize_params(key2, cfg)
+    params = model.initialize_params(key2, cfg)
     mus, sigmas = inputs.generate_input_parameters(cfg)
 
     # are we running on CPU or GPU?
@@ -68,8 +57,7 @@ def train(cfg):
             sigmas,
         )
 
-    print("got training data!")
-    print(f"took {time.time() - start} seconds")
+    print(f"got training data in {time.time() - start} seconds!")
 
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)
