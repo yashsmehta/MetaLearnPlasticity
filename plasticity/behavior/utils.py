@@ -47,7 +47,7 @@ def experiment_list_to_tensor(longest_trial_length, nested_list, list_type):
 
     elif list_type == "xs":
         element_dim = len(nested_list[0][0][0])
-        tensor = np.full((num_trials, longest_trial_length, element_dim), 0)
+        tensor = np.full((num_trials, longest_trial_length, element_dim), 0.)
     else:
         raise Exception("list passed must be odors, decisions or xs")
 
