@@ -1,60 +1,42 @@
 import jax
 import jax.numpy as jnp
-from jax import vmap
 import numpy as np
 
 
-def generate_input_parameters(key, input_dim, num_odors, firing_fraction):
+def generate_input_parameters(cfg):
     """
     return the mus and sigmas tensors, with some mean, and variance
     """
-    mus = np.zeros((num_odors, input_dim))
-    mus += 1
-    mask = jax.random.choice(
-        key,
-        np.array([0, 1]),
-        shape=(num_odors, input_dim),
-        p=np.array([1 - firing_fraction, firing_fraction]),
+    # for now, this is hardcoded to 2 odors
+    num_odors = 2
+    input_dim = cfg.input_dim
+    firing_idx = np.random.choice(
+        np.arange(input_dim), size=input_dim // 2, replace=False
     )
-    mus = np.multiply(mus, mask)
+    mus_a = np.zeros(input_dim)
+    mus_a[firing_idx] = cfg.input_firing_mean 
+
+    mus_b = cfg.input_firing_mean * np.ones(input_dim)
+    mus_b[firing_idx] = 0.
+    mus = np.vstack((mus_a, mus_b))
+
     diag_mask = np.ma.diag(np.ones(input_dim))
 
-    sigmas = np.zeros((num_odors, input_dim, input_dim))
-    firing_covariance = 0.1
-    base_noise = 0.1
-    sigmas += base_noise
+    sigmas = cfg.input_noise * np.ones((num_odors, input_dim, input_dim))
 
     for i in range(num_odors):
-        sigmas[i] = (firing_covariance - base_noise) * mus[i] + sigmas[i]
         sigmas[i] = np.multiply(sigmas[i], diag_mask)
 
     return jnp.array(mus), jnp.array(sigmas)
 
 
-def generate_binary_input_parameters():
-    """
-    return mus, sigmas for binary encoding of 2 odors
-    """
-    mus = jnp.identity(2)
-    sigmas = jnp.zeros((2, 2, 2))
-    return mus, sigmas
+def sample_inputs(key, mus, sigmas, odor):
 
+    input_dim = mus.shape[1]
+    x = jax.random.normal(key, shape=(input_dim,))
 
-def sample_inputs(key, mus, sigmas, k, scale=0.1):
-
-    # get a normally distributed variable
-    x = scale * jax.random.normal(key, shape=mus[0].shape)
-
-    # shift and scale according to mus[k]
-    x = x @ sigmas[k]
-    x = x + mus[k]
+    # shift and scale according to mus[odor]
+    x = x @ sigmas[odor]
+    x = x + mus[odor]
 
     return x
-
-
-def generate_sparse_inputs(mus, sigmas, odors_tensor, keys_tensor):
-    vsample_inputs = vmap(sample_inputs, in_axes=(None, None, 0, 0))
-    vvsample_inputs = vmap(vsample_inputs, in_axes=(None, None, 1, 1))
-    input_data = vvsample_inputs(mus, sigmas, odors_tensor, keys_tensor)
-    input_data = jnp.swapaxes(input_data, 0, 1)
-    return input_data
