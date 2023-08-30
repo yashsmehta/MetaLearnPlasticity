@@ -82,7 +82,7 @@ def simulate(
 
 
 def network_step(
-    input,
+    trial_inputs,
     params,
     plasticity_coeffs,
     plasticity_func,
@@ -95,7 +95,7 @@ def network_step(
     Returns:
         updated params, and stacked: params, logits
     """
-    activations = jax.vmap(network_forward, in_axes=(None, 0))(params, input)
+    activations = jax.vmap(network_forward, in_axes=(None, 0))(params, trial_inputs)
     # pass only the activations wrt the last odor in trial
     last_odor_activations = [a[trial_length - 1] for a in activations]
     params = update_params(
@@ -151,11 +151,13 @@ def evaluate(
         logits, model_logits: (total_trials, longest_trial),
         params_trajec, model_weight_trajec: (total_trials, input_dim, output_dim)
     """
+    # In eval: assumption is that logits are zero after trial length!
 
     test_cfg = cfg.copy()
     test_cfg.num_exps = 1
+    test_cfg.trials_per_block = 20
     key, subkey = jax.random.split(key)
-    params = initialize_params(subkey, cfg)
+    params = initialize_params(subkey, cfg, scale=0.01)
 
     (
         xs,
@@ -175,9 +177,6 @@ def evaluate(
     trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions["0"])), axis=1).astype(
         int
     )
-    logits_mask = np.ones(decisions["0"].shape)
-    for j, length in enumerate(trial_lengths):
-        logits_mask[j][length:] = 0.
 
     params_trajec, activations = simulate(
         params,
@@ -190,7 +189,6 @@ def evaluate(
     )
     weight_trajec = params_trajec[0][0]
     logits = jnp.squeeze(activations[-1])
-    logits = jnp.multiply(logits, logits_mask)
 
     model_params_trajec, model_activations = simulate(
         params,
@@ -203,5 +201,4 @@ def evaluate(
     )
     model_weight_trajec = model_params_trajec[0][0]
     model_logits = jnp.squeeze(model_activations[-1])
-    model_logits = jnp.multiply(model_logits, logits_mask)
     return (logits, weight_trajec), (model_logits, model_weight_trajec)
