@@ -1,9 +1,23 @@
 import jax.numpy as jnp
+import numpy as np
 import jax
 from jax import vmap
 from functools import partial
 import plasticity.behavior.data_loader as data_loader
 import plasticity.behavior.utils as utils
+
+
+def initialize_params(key, cfg, scale=0.1):
+    layer_sizes = cfg.layer_sizes
+    initial_params = [
+        (
+            utils.generate_gaussian(key, (m, n), scale),
+            # utils.generate_gaussian(key, (n,), scale),
+            jnp.zeros((n,)),
+        )
+        for m, n in zip(layer_sizes[:-1], layer_sizes[1:])
+    ]
+    return initial_params
 
 
 def network_forward(params, inputs):
@@ -111,7 +125,9 @@ def update_params(
     # vmap over input neurons
     vmap_synapses = jax.vmap(vmap_inputs, in_axes=(0, None, 0, None))
     dw = vmap_synapses(activation, reward_term, w, plasticity_coeffs)
-    db = vmap_inputs(1.0, reward_term, b, plasticity_coeffs)
+    # decide whether to update bias or not
+    db = jnp.zeros_like(b)
+    # db = vmap_inputs(1.0, reward_term, b, plasticity_coeffs)
     assert (
         dw.shape == w.shape and db.shape == b.shape
     ), "dw and w should be of the same shape to prevent broadcasting \
@@ -127,9 +143,9 @@ def update_params(
 
 
 def evaluate(
-    key, cfg, simulation_coeff, plasticity_coeff, plasticity_func, mus, sigmas
+    key, cfg, generation_coeff, plasticity_coeff, plasticity_func, mus, sigmas
 ):
-    """Evaluate logits, weight trajectory for simulation_coeff and plasticity_coeff
+    """Evaluate logits, weight trajectory for generation_coeff and plasticity_coeff
        with new initial params, for a single new experiment
     Returns:
         logits, model_logits: (total_trials, longest_trial),
@@ -138,7 +154,8 @@ def evaluate(
 
     test_cfg = cfg.copy()
     test_cfg.num_exps = 1
-    winit = utils.generate_gaussian(key, (cfg.input_dim, cfg.output_dim), scale=0.01)
+    key, subkey = jax.random.split(key)
+    params = initialize_params(subkey, cfg)
 
     (
         xs,
@@ -149,8 +166,8 @@ def evaluate(
     ) = data_loader.generate_experiments_data(
         key,
         test_cfg,
-        winit,
-        simulation_coeff,
+        params,
+        generation_coeff,
         plasticity_func,
         mus,
         sigmas,
@@ -158,19 +175,25 @@ def evaluate(
     trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions["0"])), axis=1).astype(
         int
     )
+    logits_mask = np.ones(decisions["0"].shape)
+    for j, length in enumerate(trial_lengths):
+        logits_mask[j][length:] = 0.
 
-    logits, params_trajec = simulate(
-        winit,
-        simulation_coeff,
+    params_trajec, activations = simulate(
+        params,
+        generation_coeff,
         plasticity_func,
         xs["0"],
         rewards["0"],
         expected_rewards["0"],
         trial_lengths,
     )
+    weight_trajec = params_trajec[0][0]
+    logits = jnp.squeeze(activations[-1])
+    logits = jnp.multiply(logits, logits_mask)
 
-    model_logits, model_weight_trajec = simulate(
-        winit,
+    model_params_trajec, model_activations = simulate(
+        params,
         plasticity_coeff,
         plasticity_func,
         xs["0"],
@@ -178,4 +201,7 @@ def evaluate(
         expected_rewards["0"],
         trial_lengths,
     )
-    return (logits, params_trajec), (model_logits, model_weight_trajec)
+    model_weight_trajec = model_params_trajec[0][0]
+    model_logits = jnp.squeeze(model_activations[-1])
+    model_logits = jnp.multiply(model_logits, logits_mask)
+    return (logits, weight_trajec), (model_logits, model_weight_trajec)
