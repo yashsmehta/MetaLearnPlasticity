@@ -21,7 +21,7 @@ def train(cfg):
     key = jax.random.PRNGKey(cfg.jobid)
     np.random.seed(cfg.jobid)
     generation_coeff, plasticity_func = synapse.init_volterra(init="reward")
-    plasticity_coeff, _ = synapse.init_volterra(key, init="reward")
+    plasticity_coeff, _ = synapse.init_volterra(key, init="random")
 
     key, key2 = split(key)
     params = model.initialize_params(key2, cfg)
@@ -35,14 +35,14 @@ def train(cfg):
 
     if cfg.use_experimental_data:
         (
-            xs,
+            resampled_xs,
             decisions,
             rewards,
             expected_rewards,
         ) = data_loader.load_single_adi_experiment(cfg)
     else:
         (
-            xs,
+            resampled_xs,
             odors,
             decisions,
             rewards,
@@ -80,7 +80,7 @@ def train(cfg):
             #     params,
             #     plasticity_coeff,
             #     plasticity_func,
-            #     xs[str(exp_i)],
+            #     resampled_xs[str(exp_i)],
             #     rewards[str(exp_i)],
             #     expected_rewards[str(exp_i)],
             #     decisions[str(exp_i)],
@@ -93,7 +93,7 @@ def train(cfg):
                 params,
                 plasticity_coeff,
                 plasticity_func,
-                xs[str(exp_i)],
+                resampled_xs[str(exp_i)],
                 rewards[str(exp_i)],
                 expected_rewards[str(exp_i)],
                 decisions[str(exp_i)],
@@ -151,7 +151,7 @@ def train(cfg):
             df[key] = value
             # print(key, value)
 
-    pd.set_option("display.max_columns", None)
+    # pd.set_option("display.max_columns", None)
     print(df.tail(5))
 
     if cfg.log_expdata:

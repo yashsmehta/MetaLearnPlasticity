@@ -154,7 +154,8 @@ def generate_trial(
         key, subkey = split(key)
         odor = int(bernoulli(key, 0.5))
         trial_odors.append(odor)
-        x = inputs.sample_inputs(subkey, odor_mus, odor_sigmas, odor)
+        x = inputs.sample_inputs(key, odor_mus, odor_sigmas, odor)
+        resampled_x = inputs.sample_inputs(subkey, odor_mus, odor_sigmas, odor)
         jit_network_forward = jax.jit(model.network_forward)
         activations = jit_network_forward(params, x)
         prob_output = sigmoid(activations[-1])
@@ -162,7 +163,7 @@ def generate_trial(
         key, subkey = split(key)
         sampled_output = float(bernoulli(subkey, prob_output))
 
-        input_xs.append(x)
+        input_xs.append(resampled_x)
         decisions.append(sampled_output)
 
         if sampled_output == 1:
