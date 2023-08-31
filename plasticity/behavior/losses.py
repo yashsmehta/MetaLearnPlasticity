@@ -11,7 +11,7 @@ def compute_cross_entropy(decisions, logits):
     return jnp.mean(losses)
 
 
-# @partial(jax.jit, static_argnames=["plasticity_func"])
+@partial(jax.jit, static_argnames=["plasticity_func"])
 def celoss(
     params,
     plasticity_coeff,
@@ -44,5 +44,5 @@ def celoss(
     loss = compute_cross_entropy(decisions, logits)
 
     # add a L1 regularization term to the loss
-    # loss += 5e-5 * jnp.sum(jnp.abs(plasticity_coeff))
+    loss += 5e-2 * jnp.sum(jnp.abs(plasticity_coeff))
     return loss
