@@ -2,10 +2,12 @@ import jax.numpy as jnp
 import jax
 from jax import vmap
 from jax.lax import reshape
+from functools import partial
 import plasticity.behavior.data_loader as data_loader
 import plasticity.behavior.utils as utils
 
 
+@partial(jax.jit, static_argnums=(2,))
 def simulate(
     initial_params,
     plasticity_coeffs,
@@ -41,6 +43,8 @@ def simulate(
     final_weights, (weight_trajec, logits) = jax.lax.scan(
         step, initial_params, (xs, rewards, expected_rewards, trial_lengths)
     )
+    # jax.debug.print("logits in network_step", logits)
+    # exit()
     return jnp.squeeze(logits), weight_trajec
 
 
@@ -59,11 +63,14 @@ def network_step(
         updated params, and stacked: params, logits
     """
     vmapped_forward = vmap(lambda params, x: jnp.dot(x, params), (None, 0))
+    
     logits = vmapped_forward(params, input)
     x = input[trial_length - 1]
     dw = weight_update(
         x, params, plasticity_coeffs, plasticity_func, reward, expected_reward
     )
+    # print("params: \n", params)
+    # print("dw: \n", dw)
     params += dw
 
     return params, (params, logits)
@@ -112,7 +119,9 @@ def evaluate(
 
     test_cfg = cfg.copy()
     test_cfg.num_exps = 1
-    winit = utils.generate_gaussian(key, (cfg.input_dim, cfg.output_dim), scale=0.01)
+    test_cfg.trials_per_block = 20
+    key, subkey = jax.random.split(key)
+    winit = utils.generate_gaussian(subkey, (cfg.input_dim, cfg.output_dim), scale=0.01)
 
     (
         xs,

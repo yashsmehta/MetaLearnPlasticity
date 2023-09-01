@@ -19,21 +19,21 @@ def train(cfg):
     coeff_mask = np.array(cfg.coeff_mask)
     key = jax.random.PRNGKey(cfg.jobid)
     generation_coeff, plasticity_func = synapse.init_reward_volterra(init="reward")
-    plasticity_coeff, _ = synapse.init_reward_volterra(init="zeros")
+    plasticity_coeff, _ = synapse.init_reward_volterra(key, init="random")
+    np.random.seed(cfg.jobid)
 
-    key, _ = split(key)
+    key, key2 = split(key)
 
-    # params = jnp.zeros((input_dim, output_dim))
-    params = utils.generate_gaussian(key, (cfg.input_dim, cfg.output_dim), scale=0.1)
-    key, _ = split(key)
+    params = utils.generate_gaussian(key2, (cfg.input_dim, cfg.output_dim), scale=0.1)
+    print("params: \n", params)
 
-    # mus, sigmas = inputs.generate_binary_input_parameters()
-    mus, sigmas = inputs.generate_input_parameters(key, cfg.input_dim, num_odors=2, firing_fraction=0.5)
+    mus, sigmas = inputs.generate_input_parameters(cfg)
 
     # are we running on CPU or GPU?
     device = jax.lib.xla_bridge.get_backend().platform
     print("platform: ", device)
     print("layer size: [{}, {}]".format(cfg.input_dim, cfg.output_dim))
+    start = time.time()
 
     if cfg.use_experimental_data:
         xs, decisions, rewards, expected_rewards = data_loader.load_single_adi_experiment(cfg)
@@ -53,8 +53,7 @@ def train(cfg):
             mus,
             sigmas,
         )
-
-    print("got training data!")
+    print(f"got training data in {time.time() - start} seconds!")
 
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)
@@ -85,7 +84,6 @@ def train(cfg):
             #     logits_mask,
             #     coeff_mask,
             # )
-            # exit()
 
             loss, meta_grads = loss_value_and_grad(
                 params,
@@ -136,6 +134,7 @@ def train(cfg):
     kl_div = utils.kl_divergence(logits, model_logits)
     print(f"r2 score: {r2_score}")
     print(f"kl divergence: {kl_div}")
+    exit()
 
     coeff_logs = np.array(coeff_logs)
     expdata = coeff_logs_to_dict(coeff_logs)
