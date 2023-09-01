@@ -45,7 +45,7 @@ def experiment_list_to_tensor(longest_trial_length, nested_list, list_type):
         # individual trial length check for nans and stop when they see one
         tensor = np.full((num_trials, longest_trial_length), np.nan)
 
-    elif list_type == "xs":
+    elif list_type == "xs" or list_type == "neural_recordings":
         element_dim = len(nested_list[0][0][0])
         tensor = np.full((num_trials, longest_trial_length, element_dim), 0.)
     else:

@@ -29,7 +29,7 @@ def generate_experiments_data(
         tensors as values
     """
 
-    xs, odors, decisions, rewards, expected_rewards = {}, {}, {}, {}, {}
+    xs, odors, neural_recordings, decisions, rewards, expected_rewards = {}, {}, {}, {}, {}, {}
     print("generating experiments data...")
 
     for exp_i in range(cfg.num_exps):
@@ -38,6 +38,7 @@ def generate_experiments_data(
         (
             exp_xs,
             exp_odors,
+            exp_neural_recordings,
             exp_decisions,
             exp_rewards,
             exp_expected_rewards,
@@ -64,6 +65,9 @@ def generate_experiments_data(
         odors[str(exp_i)] = experiment_list_to_tensor(
             longest_trial_length, exp_odors, list_type="odors"
         )
+        neural_recordings[str(exp_i)] = experiment_list_to_tensor(
+            longest_trial_length, exp_neural_recordings, list_type="neural_recordings"
+        )
         decisions[str(exp_i)] = experiment_list_to_tensor(
             longest_trial_length, exp_decisions, list_type="decisions"
         )
@@ -72,7 +76,7 @@ def generate_experiments_data(
             exp_expected_rewards, dtype=float
         ).flatten()
 
-    return xs, odors, decisions, rewards, expected_rewards
+    return xs, odors, neural_recordings, decisions, rewards, expected_rewards
 
 
 def generate_experiment(
@@ -97,8 +101,8 @@ def generate_experiment(
         2,
     )
 
-    xs, odors, sampled_ys, rewards, expected_rewards = (
-        create_nested_list(cfg.num_blocks, cfg.trials_per_block) for _ in range(5)
+    xs, odors, neural_recordings, decisions, rewards, expected_rewards = (
+        create_nested_list(cfg.num_blocks, cfg.trials_per_block) for _ in range(6)
     )
 
     for block in range(cfg.num_blocks):
@@ -122,12 +126,13 @@ def generate_experiment(
             (
                 xs[block][trial],
                 odors[block][trial],
-                sampled_ys[block][trial],
+                neural_recordings[block][trial],
+                decisions[block][trial],
                 rewards[block][trial],
                 expected_rewards[block][trial],
             ) = trial_data
 
-    return xs, odors, sampled_ys, rewards, expected_rewards
+    return xs, odors, neural_recordings, decisions, rewards, expected_rewards
 
 
 def generate_trial(
@@ -146,7 +151,7 @@ def generate_trial(
         rewards, and expected_rewards for the trial
     """
 
-    input_xs, trial_odors, decisions = [], [], []
+    input_xs, trial_odors, neural_recordings, decisions = [], [], [], []
 
     expected_reward = np.mean(r_history)
 
@@ -164,6 +169,7 @@ def generate_trial(
         sampled_output = float(bernoulli(subkey, prob_output))
 
         input_xs.append(resampled_x)
+        neural_recordings.append(activations[-2])
         decisions.append(sampled_output)
 
         if sampled_output == 1:
@@ -177,7 +183,7 @@ def generate_trial(
             break
 
     return (
-        (input_xs, trial_odors, decisions, reward, expected_reward),
+        (input_xs, trial_odors, neural_recordings, decisions, reward, expected_reward),
         params,
         rewards_in_arena,
         r_history,

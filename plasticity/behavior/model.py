@@ -162,6 +162,7 @@ def evaluate(
     (
         xs,
         odors,
+        neural_recordings,
         decisions,
         rewards,
         expected_rewards,
@@ -177,6 +178,9 @@ def evaluate(
     trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions["0"])), axis=1).astype(
         int
     )
+    logits_mask = np.ones(decisions[str("0")].shape)
+    for j, length in enumerate(trial_lengths):
+        logits_mask[j][length:] = 0
 
     params_trajec, activations = simulate(
         params,
@@ -189,6 +193,7 @@ def evaluate(
     )
     weight_trajec = params_trajec[0][0]
     logits = jnp.squeeze(activations[-1])
+    logits = jnp.multiply(logits, logits_mask)
 
     model_params_trajec, model_activations = simulate(
         params,
@@ -201,4 +206,5 @@ def evaluate(
     )
     model_weight_trajec = model_params_trajec[0][0]
     model_logits = jnp.squeeze(model_activations[-1])
+    model_logits = jnp.multiply(model_logits, logits_mask)
     return (logits, weight_trajec), (model_logits, model_weight_trajec)

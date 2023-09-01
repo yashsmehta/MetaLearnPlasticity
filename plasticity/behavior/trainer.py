@@ -17,7 +17,6 @@ import time
 
 def train(cfg):
     jax.config.update('jax_platform_name', 'cpu')
-    coeff_mask = np.array(cfg.coeff_mask)
     key = jax.random.PRNGKey(cfg.jobid)
     np.random.seed(cfg.jobid)
     generation_coeff, plasticity_func = synapse.init_volterra(init="reward")
@@ -44,6 +43,7 @@ def train(cfg):
         (
             resampled_xs,
             odors,
+            neural_recordings,
             decisions,
             rewards,
             expected_rewards,
@@ -57,8 +57,6 @@ def train(cfg):
             sigmas,
         )
 
-    print(f"got training data in {time.time() - start} seconds!")
-
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(plasticity_coeff)
@@ -68,6 +66,7 @@ def train(cfg):
         for exp_i in range(cfg.num_exps):
             start = time.time()
             # calculate the length of each trial by checking for NaNs
+            # note: this can all be calculated inside the loss function!
             trial_lengths = jnp.sum(
                 jnp.logical_not(jnp.isnan(decisions[str(exp_i)])), axis=1
             ).astype(int)
@@ -83,11 +82,13 @@ def train(cfg):
             #     resampled_xs[str(exp_i)],
             #     rewards[str(exp_i)],
             #     expected_rewards[str(exp_i)],
+            #     neural_recordings[str(exp_i)],
             #     decisions[str(exp_i)],
-            #     trial_lengths,
             #     logits_mask,
-            #     coeff_mask,
+            #     cfg,
             # )
+            # print(f"loss: {loss}")
+            # exit()
 
             loss, meta_grads = loss_value_and_grad(
                 params,
@@ -96,10 +97,10 @@ def train(cfg):
                 resampled_xs[str(exp_i)],
                 rewards[str(exp_i)],
                 expected_rewards[str(exp_i)],
+                neural_recordings[str(exp_i)],
                 decisions[str(exp_i)],
-                trial_lengths,
                 logits_mask,
-                coeff_mask,
+                cfg,
             )
 
             updates, opt_state = optimizer.update(
@@ -115,7 +116,7 @@ def train(cfg):
         if epoch % cfg.log_interval == 0:
             print(f"epoch :{epoch}")
             print(f"loss :{loss}")
-            indices = coeff_mask.nonzero()
+            indices = np.array(cfg.coeff_mask).nonzero()
             ind_i, ind_j, ind_k = indices
             for index in zip(ind_i, ind_j, ind_k):
                 print(f"A{index}", plasticity_coeff[index])

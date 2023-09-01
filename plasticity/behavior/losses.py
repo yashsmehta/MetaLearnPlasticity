@@ -10,8 +10,12 @@ def compute_cross_entropy(decisions, logits):
     losses = optax.sigmoid_binary_cross_entropy(logits, decisions)
     return jnp.mean(losses)
 
+def compute_mse(neural_recordings, layer_activations):
+    # returns the mean of the element-wise mse
+    losses = optax.squared_error(neural_recordings, layer_activations)
+    return jnp.mean(losses)
 
-@partial(jax.jit, static_argnames=["plasticity_func"])
+@partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
 def celoss(
     params,
     plasticity_coeff,
@@ -19,13 +23,15 @@ def celoss(
     xs,
     rewards,
     expected_rewards,
+    neural_recordings,
     decisions,
-    trial_lengths,
     logits_mask,
-    coeff_mask,
+    cfg,
 ):
 
+    coeff_mask = jnp.array(cfg.coeff_mask)
     plasticity_coeff = jnp.multiply(plasticity_coeff, coeff_mask)
+    trial_lengths = jnp.sum(logits_mask, axis=1).astype(int)
 
     params_trajec, activations = model.simulate(
         params,
@@ -36,13 +42,20 @@ def celoss(
         expected_rewards,
         trial_lengths,
     )
+    # why does logit_mask have an effect??!!
     logits = jnp.squeeze(activations[-1])
     # mask out the logits after the trial length
     logits = jnp.multiply(logits, logits_mask)
-    decisions = jnp.nan_to_num(decisions, copy=False, nan=0)
+    decisions = jnp.nan_to_num(decisions, copy=False, nan=0.)
 
-    loss = compute_cross_entropy(decisions, logits)
-
+    ce_loss = compute_cross_entropy(decisions, logits)
+    mse_loss = compute_mse(neural_recordings, activations[-2])
     # add a L1 regularization term to the loss
-    loss += 5e-2 * jnp.sum(jnp.abs(plasticity_coeff))
+    loss = cfg.l1_regularization * jnp.sum(jnp.abs(plasticity_coeff))
+    # python string search if "neural" in cfg.fit_data
+    if "neural" in cfg.fit_data:
+        loss += mse_loss
+    if "behavior" in cfg.fit_data:
+        loss += ce_loss
+
     return loss
