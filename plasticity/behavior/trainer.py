@@ -16,7 +16,7 @@ import time
 
 
 def train(cfg):
-    jax.config.update('jax_platform_name', 'cpu')
+    jax.config.update("jax_platform_name", "cpu")
     key = jax.random.PRNGKey(cfg.jobid)
     np.random.seed(cfg.jobid)
     generation_coeff, plasticity_func = synapse.init_volterra(init="reward")
@@ -87,8 +87,6 @@ def train(cfg):
             #     logits_mask,
             #     cfg,
             # )
-            # print(f"loss: {loss}")
-            # exit()
 
             loss, meta_grads = loss_value_and_grad(
                 params,

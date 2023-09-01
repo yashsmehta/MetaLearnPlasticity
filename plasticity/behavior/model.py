@@ -99,7 +99,12 @@ def network_step(
     # pass only the activations wrt the last odor in trial
     last_odor_activations = [a[trial_length - 1] for a in activations]
     params = update_params(
-        params, last_odor_activations, plasticity_coeffs, plasticity_func, reward, expected_reward
+        params,
+        last_odor_activations,
+        plasticity_coeffs,
+        plasticity_func,
+        reward,
+        expected_reward,
     )
 
     return params, (params, activations)

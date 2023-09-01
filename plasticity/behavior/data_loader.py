@@ -22,14 +22,20 @@ def generate_experiments_data(
     odor_mus,
     odor_sigmas,
 ):
-
     """Simulate all fly experiments with given plasticity coefficients
     Returns:
         5 dictionaries corresponding with experiment number (int) as key, with
         tensors as values
     """
 
-    xs, odors, neural_recordings, decisions, rewards, expected_rewards = {}, {}, {}, {}, {}, {}
+    xs, odors, neural_recordings, decisions, rewards, expected_rewards = (
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+    )
     print("generating experiments data...")
 
     for exp_i in range(cfg.num_exps):
@@ -176,9 +182,16 @@ def generate_trial(
             reward = rewards_in_arena[odor]
             r_history.appendleft(reward)
             rewards_in_arena[odor] = 0
-            jit_update_params = partial(jax.jit, static_argnums=(3,))(model.update_params)
+            jit_update_params = partial(jax.jit, static_argnums=(3,))(
+                model.update_params
+            )
             params = jit_update_params(
-                params, activations, plasticity_coeffs, plasticity_func, reward, expected_reward
+                params,
+                activations,
+                plasticity_coeffs,
+                plasticity_func,
+                reward,
+                expected_reward,
             )
             break
 
@@ -188,6 +201,7 @@ def generate_trial(
         rewards_in_arena,
         r_history,
     )
+
 
 def expected_reward_for_exp_data(R, moving_avg_window):
     r_history = collections.deque(moving_avg_window * [0], maxlen=moving_avg_window)
@@ -201,7 +215,7 @@ def expected_reward_for_exp_data(R, moving_avg_window):
 def load_adi_expdata(cfg):
     assert cfg.num_exps <= len(os.listdir(cfg.data_dir)), "Not enough experimental data"
     print("Loading experimental data...")
-    
+
     element_dim = 2
 
     xs, decisions, rewards, expected_rewards = {}, {}, {}, {}
@@ -245,13 +259,14 @@ def load_adi_expdata(cfg):
         xs[str(exp_i)] = xs_tensor
 
         rewards[str(exp_i)] = R
-        expected_rewards[str(exp_i)] = expected_reward_for_exp_data(R, cfg.moving_avg_window)
+        expected_rewards[str(exp_i)] = expected_reward_for_exp_data(
+            R, cfg.moving_avg_window
+        )
 
     return xs, decisions, rewards, expected_rewards
 
 
 def load_single_adi_experiment(cfg):
-    
     exp_i = 0
     element_dim = 2
 
@@ -292,6 +307,8 @@ def load_single_adi_experiment(cfg):
     xs[str(exp_i)] = xs_tensor
 
     rewards[str(exp_i)] = R
-    expected_rewards[str(exp_i)] = expected_reward_for_exp_data(R, cfg.moving_avg_window)
+    expected_rewards[str(exp_i)] = expected_reward_for_exp_data(
+        R, cfg.moving_avg_window
+    )
 
     return xs, decisions, rewards, expected_rewards

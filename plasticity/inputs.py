@@ -14,10 +14,10 @@ def generate_input_parameters(cfg):
         np.arange(input_dim), size=input_dim // 2, replace=False
     )
     mus_a = np.zeros(input_dim)
-    mus_a[firing_idx] = cfg.input_firing_mean 
+    mus_a[firing_idx] = cfg.input_firing_mean
 
     mus_b = cfg.input_firing_mean * np.ones(input_dim)
-    mus_b[firing_idx] = 0.
+    mus_b[firing_idx] = 0.0
     mus = np.vstack((mus_a, mus_b))
 
     diag_mask = np.ma.diag(np.ones(input_dim))
@@ -31,7 +31,6 @@ def generate_input_parameters(cfg):
 
 
 def sample_inputs(key, mus, sigmas, odor):
-
     input_dim = mus.shape[1]
     x = jax.random.normal(key, shape=(input_dim,))
 

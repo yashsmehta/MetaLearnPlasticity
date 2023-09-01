@@ -4,7 +4,6 @@ import numpy as np
 
 
 def volterra_synapse_tensor(x, y, z):
-
     synapse_tensor = jnp.outer(
         jnp.outer(
             jnp.array([x**0, x**1, x**2]),
@@ -57,7 +56,6 @@ def init_oja(parameters):
 
 
 def init_volterra(random_key=None, init=None):
-
     init_functions = {
         "zeros": init_zeros,
         "random": lambda: init_random(random_key),
