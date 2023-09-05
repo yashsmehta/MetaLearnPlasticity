@@ -1,5 +1,6 @@
 import jax
 import jax.numpy as jnp
+from jax import vmap
 import numpy as np
 import sklearn.metrics
 from scipy.special import kl_div
@@ -14,11 +15,26 @@ def generate_gaussian(key, shape, scale=0.1):
     return scale * jax.random.normal(key, shape)
 
 
-def r2_score(tensor1, tensor2):
-    tensor1 = tensor1.reshape(tensor1.shape[0], -1)
-    tensor2 = tensor2.reshape(tensor2.shape[0], -1)
-    return sklearn.metrics.r2_score(tensor1, tensor2)
+def compute_r2_score(generation_trajec, model_trajec):
+    """
+    Calculates the R2 score over individual weight trajectories
+    and returns the average; note: weights only change at the end
+    of a trial.
+    trajec: (num_trails, input_dim, output_dim)
+    """
+    
+    generation_trajec = generation_trajec.reshape(generation_trajec.shape[0], -1)
+    model_trajec = model_trajec.reshape(model_trajec.shape[0], -1)
+    r2_score = sklearn.metrics.r2_score(generation_trajec, model_trajec)
+    return r2_score
 
+def compute_neg_log_likelihoods(logits_mask, logits, decisions):
+    not_logits = jnp.ones_like(logits) - logits
+    neg_log_likelihoods = -2 * jnp.log(jnp.where(decisions == 1, logits, not_logits))
+    neg_log_likelihoods = jnp.multiply(logits_mask, neg_log_likelihoods)
+    print(neg_log_likelihoods)
+    # add logits mask
+    return jnp.mean(neg_log_likelihoods)
 
 def kl_divergence(logits1, logits2):
     """

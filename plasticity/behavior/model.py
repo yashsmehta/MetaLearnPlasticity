@@ -1,10 +1,10 @@
 import jax.numpy as jnp
 import numpy as np
 import jax
-from jax import vmap
 from functools import partial
 import plasticity.behavior.data_loader as data_loader
 import plasticity.behavior.utils as utils
+import plasticity.synapse as synapse
 
 
 def initialize_params(key, cfg, scale=0.1):
@@ -118,7 +118,9 @@ def update_params(
     returns updated params
     """
     print("compiling model.update_params()...")
+    # using expected reward or just the reward:
     reward_term = reward - expected_reward
+    # reward_term = reward
 
     delta_params = []
 
@@ -153,14 +155,12 @@ def evaluate(
     """Evaluate logits, weight trajectory for generation_coeff and plasticity_coeff
        with new initial params, for a single new experiment
     Returns:
-        logits, model_logits: (total_trials, longest_trial),
-        params_trajec, model_weight_trajec: (total_trials, input_dim, output_dim)
+        R2 score (weights), R2 score (activity from output neurons of plasticity layer)
     """
-    # In eval: assumption is that logits are zero after trial length!
 
     test_cfg = cfg.copy()
     test_cfg.num_exps = 1
-    test_cfg.trials_per_block = 20
+    test_cfg.trials_per_block = 5
     key, subkey = jax.random.split(key)
     params = initialize_params(subkey, cfg, scale=0.01)
 
@@ -183,10 +183,8 @@ def evaluate(
     trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions["0"])), axis=1).astype(
         int
     )
-    logits_mask = np.ones(decisions[str("0")].shape)
-    for j, length in enumerate(trial_lengths):
-        logits_mask[j][length:] = 0
 
+    # simulate model with "true" plasticity coefficients (generation_coeff)
     params_trajec, activations = simulate(
         params,
         generation_coeff,
@@ -196,10 +194,8 @@ def evaluate(
         expected_rewards["0"],
         trial_lengths,
     )
-    weight_trajec = params_trajec[0][0]
-    logits = jnp.squeeze(activations[-1])
-    logits = jnp.multiply(logits, logits_mask)
 
+    # simulate model with learned plasticity coefficients (plasticity_coeff)
     model_params_trajec, model_activations = simulate(
         params,
         plasticity_coeff,
@@ -209,7 +205,75 @@ def evaluate(
         expected_rewards["0"],
         trial_lengths,
     )
-    model_weight_trajec = model_params_trajec[0][0]
-    model_logits = jnp.squeeze(model_activations[-1])
-    model_logits = jnp.multiply(model_logits, logits_mask)
-    return (logits, weight_trajec), (model_logits, model_weight_trajec)
+
+    # simulate model with zeros plasticity coefficients for null model
+    plasticity_coeff_zeros, _ = synapse.init_volterra(init="zeros")
+    _, null_model_activations = simulate(
+        params,
+        plasticity_coeff_zeros,
+        plasticity_func,
+        xs["0"],
+        rewards["0"],
+        expected_rewards["0"],
+        trial_lengths,
+    )
+    # change nan decisions to zeros!
+    r2_score = evaluate_r2_score(
+        params_trajec, activations, model_params_trajec, model_activations
+    )
+
+    percent_deviance = evaluate_percent_deviance(
+        decisions["0"], model_activations, null_model_activations
+    )
+
+    return r2_score, percent_deviance
+
+
+def evaluate_r2_score(
+    params_trajec, activations, model_params_trajec, model_activations
+):
+    r2_score = {}
+
+    weight_trajec = jnp.array(params_trajec[0][0])
+    layer_activations = jnp.squeeze(activations[1])
+
+    model_weight_trajec = jnp.array(model_params_trajec[0][0])
+    model_layer_activations = jnp.squeeze(model_activations[1])
+
+    r2_score["weights"] = utils.compute_r2_score(weight_trajec, model_weight_trajec)
+    # note: this won't calculate the true R2 score between neural activity, since
+    # after trial length the activities for both these would be the same (corresponding to x=0)
+    r2_score["activity"] = utils.compute_r2_score(
+        layer_activations, model_layer_activations
+    )
+    return r2_score
+
+
+def evaluate_percent_deviance(decisions, model_activations, null_model_activations):
+    """Evaluate logits for plasticity coefficients, calculate
+        neg log likelihoods. Then calculate the neg log likelihoods
+        where A_ijk = 0 (null model). Then percent deviance explained
+        is (D_null - D_model) / D_null
+    Returns:
+        Percent deviance explained scalar
+    """
+
+    trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions)), axis=1).astype(
+        int
+    )
+    logits_mask = np.ones_like(decisions)
+    for j, length in enumerate(trial_lengths):
+        logits_mask[j][length:] = 0
+    decisions = jnp.nan_to_num(decisions, copy=False, nan=0.0)
+
+    logits = jnp.squeeze(model_activations[-1])
+    null_logits = jnp.squeeze(null_model_activations[-1])
+
+    model_deviance = utils.compute_neg_log_likelihoods(logits_mask, logits, decisions)
+    null_deviance = utils.compute_neg_log_likelihoods(
+        logits_mask, null_logits, decisions
+    )
+    print(f"model deviance: {model_deviance}")
+    print(f"null deviance: {null_deviance}")
+    percent_deviance = (null_deviance - model_deviance) / null_deviance
+    return percent_deviance

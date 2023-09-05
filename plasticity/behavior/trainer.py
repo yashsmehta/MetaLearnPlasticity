@@ -1,4 +1,3 @@
-from plasticity.behavior import utils
 import plasticity.inputs as inputs
 from plasticity import synapse
 from plasticity.behavior.utils import coeff_logs_to_dict
@@ -62,6 +61,20 @@ def train(cfg):
     opt_state = optimizer.init(plasticity_coeff)
     coeff_logs, epoch_logs, loss_logs = [], [], []
 
+    r2_score, percent_deviance = model.evaluate(
+        key,
+        cfg,
+        generation_coeff,
+        plasticity_coeff,
+        plasticity_func,
+        mus,
+        sigmas,
+    )
+    print(f"r2 score: {r2_score}")
+    print(f"percent deviance: {percent_deviance}")
+    exit()
+
+
     for epoch in range(cfg.num_epochs):
         for exp_i in range(cfg.num_exps):
             start = time.time()
@@ -123,20 +136,6 @@ def train(cfg):
             epoch_logs.append(epoch)
             loss_logs.append(loss)
 
-    (logits, weight_trajec), (model_logits, model_weight_trajec) = model.evaluate(
-        key,
-        cfg,
-        generation_coeff,
-        plasticity_coeff,
-        plasticity_func,
-        mus,
-        sigmas,
-    )
-
-    r2_score = utils.r2_score(weight_trajec, model_weight_trajec)
-    kl_div = utils.kl_divergence(logits, model_logits)
-    print(f"r2 score: {r2_score}")
-    print(f"kl divergence: {kl_div}")
 
     coeff_logs = np.array(coeff_logs)
     expdata = coeff_logs_to_dict(coeff_logs)
