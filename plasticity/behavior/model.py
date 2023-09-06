@@ -8,7 +8,16 @@ import plasticity.synapse as synapse
 
 
 def initialize_params(key, cfg, scale=0.1):
+    """
+    Initialize parameters for the network;
+    There is no plasticity in the
+    Returns:
+        list of tuples of weights and biases for each layer
+    """
     layer_sizes = cfg.layer_sizes
+    output_dim = layer_sizes[-1]
+    assert output_dim == 1, "output_dim should be 1, as that is the prob(choose odor)"
+
     initial_params = [
         (
             utils.generate_gaussian(key, (m, n), scale),
@@ -17,6 +26,18 @@ def initialize_params(key, cfg, scale=0.1):
         )
         for m, n in zip(layer_sizes[:-1], layer_sizes[1:])
     ]
+     
+    if len(layer_sizes) != 2:
+        # for multilayer networks, remove last layer and initialize weights to 1/n
+        initial_params.pop()
+        hidden_dim = layer_sizes[-2]
+        initial_params.append(
+            (
+                jnp.ones((hidden_dim, 1)) / hidden_dim,
+                jnp.zeros((1,)),
+            )
+        )
+
     return initial_params
 
 
@@ -155,12 +176,14 @@ def evaluate(
     """Evaluate logits, weight trajectory for generation_coeff and plasticity_coeff
        with new initial params, for a single new experiment
     Returns:
-        R2 score (weights), R2 score (activity from output neurons of plasticity layer)
+        R2 score (dict), [weights, activity]; activity is of output of plastic layer
+        Percent deviance explained (scalar)
     """
 
     test_cfg = cfg.copy()
     test_cfg.num_exps = 1
-    test_cfg.trials_per_block = 5
+    # TODO: need to change this back!
+    test_cfg.trials_per_block = 80
     key, subkey = jax.random.split(key)
     params = initialize_params(subkey, cfg, scale=0.01)
 
@@ -217,7 +240,7 @@ def evaluate(
         expected_rewards["0"],
         trial_lengths,
     )
-    # change nan decisions to zeros!
+
     r2_score = evaluate_r2_score(
         params_trajec, activations, model_params_trajec, model_activations
     )
@@ -258,22 +281,22 @@ def evaluate_percent_deviance(decisions, model_activations, null_model_activatio
         Percent deviance explained scalar
     """
 
-    trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions)), axis=1).astype(
-        int
-    )
+    trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions)), axis=1).astype(int)
     logits_mask = np.ones_like(decisions)
     for j, length in enumerate(trial_lengths):
         logits_mask[j][length:] = 0
     decisions = jnp.nan_to_num(decisions, copy=False, nan=0.0)
 
-    logits = jnp.squeeze(model_activations[-1])
-    null_logits = jnp.squeeze(null_model_activations[-1])
+    ys = jax.nn.sigmoid(jnp.squeeze(model_activations[-1]))
+    ys = jnp.multiply(ys, logits_mask)
+    null_ys = jax.nn.sigmoid(jnp.squeeze(null_model_activations[-1]))
+    null_ys = jnp.multiply(null_ys, logits_mask)
+    # print("ys:", ys)
+    # print("null ys:", null_ys)
 
-    model_deviance = utils.compute_neg_log_likelihoods(logits_mask, logits, decisions)
-    null_deviance = utils.compute_neg_log_likelihoods(
-        logits_mask, null_logits, decisions
-    )
+    model_deviance = utils.compute_neg_log_likelihoods(logits_mask, ys, decisions)
+    null_deviance = utils.compute_neg_log_likelihoods(logits_mask, null_ys, decisions)
     print(f"model deviance: {model_deviance}")
     print(f"null deviance: {null_deviance}")
-    percent_deviance = (null_deviance - model_deviance) / null_deviance
+    percent_deviance = 100 * (null_deviance - model_deviance) / null_deviance
     return percent_deviance
