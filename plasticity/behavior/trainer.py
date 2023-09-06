@@ -19,7 +19,9 @@ def train(cfg):
     key = jax.random.PRNGKey(cfg.jobid)
     np.random.seed(cfg.jobid)
     generation_coeff, plasticity_func = synapse.init_volterra(init="reward")
-    plasticity_coeff, _ = synapse.init_volterra(key, init="random")
+    plasticity_coeff, _ = synapse.init_volterra(key, init=cfg.plasticity_init)
+    coeff_mask = np.array(cfg.coeff_mask)
+    plasticity_coeff = jnp.multiply(plasticity_coeff, coeff_mask)
 
     key, key2 = split(key)
     params = model.initialize_params(key2, cfg)
@@ -61,18 +63,6 @@ def train(cfg):
     opt_state = optimizer.init(plasticity_coeff)
     coeff_logs, epoch_logs, loss_logs = [], [], []
 
-    r2_score, percent_deviance = model.evaluate(
-        key,
-        cfg,
-        generation_coeff,
-        plasticity_coeff,
-        plasticity_func,
-        mus,
-        sigmas,
-    )
-    print(f"r2 score: {r2_score}")
-    print(f"percent deviance: {percent_deviance}")
-    exit()
 
 
     for epoch in range(cfg.num_epochs):
@@ -127,7 +117,7 @@ def train(cfg):
         if epoch % cfg.log_interval == 0:
             print(f"epoch :{epoch}")
             print(f"loss :{loss}")
-            indices = np.array(cfg.coeff_mask).nonzero()
+            indices = coeff_mask.nonzero()
             ind_i, ind_j, ind_k = indices
             for index in zip(ind_i, ind_j, ind_k):
                 print(f"A{index}", plasticity_coeff[index])
@@ -136,13 +126,27 @@ def train(cfg):
             epoch_logs.append(epoch)
             loss_logs.append(loss)
 
+    r2_score, percent_deviance = model.evaluate(
+        key,
+        cfg,
+        generation_coeff,
+        plasticity_coeff,
+        plasticity_func,
+        mus,
+        sigmas,
+    )
+
+    print(f"r2 score: {r2_score}")
+    print(f"percent deviance: {percent_deviance}")
+    exit()
 
     coeff_logs = np.array(coeff_logs)
     expdata = coeff_logs_to_dict(coeff_logs)
     expdata["epoch"] = epoch_logs
     expdata["loss"] = loss_logs
     df = pd.DataFrame.from_dict(expdata)
-    df["r2_score"] = r2_score
+    df["r2_weights"], df["r2_activity"] = r2_score.weights, r2_score.activity
+    df["percent_deviance"] = percent_deviance
 
     for key, value in cfg.items():
         if isinstance(value, (float, int)):

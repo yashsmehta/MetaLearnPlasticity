@@ -28,13 +28,12 @@ def compute_r2_score(generation_trajec, model_trajec):
     r2_score = sklearn.metrics.r2_score(generation_trajec, model_trajec)
     return r2_score
 
-def compute_neg_log_likelihoods(logits_mask, logits, decisions):
-    not_logits = jnp.ones_like(logits) - logits
-    neg_log_likelihoods = -2 * jnp.log(jnp.where(decisions == 1, logits, not_logits))
-    neg_log_likelihoods = jnp.multiply(logits_mask, neg_log_likelihoods)
-    print(neg_log_likelihoods)
-    # add logits mask
-    return jnp.mean(neg_log_likelihoods)
+def compute_neg_log_likelihoods(ys_mask, ys, decisions):
+    not_ys = jnp.ones_like(ys) - ys
+    neg_log_likelihoods = -2 * jnp.log(jnp.where(decisions == 1, ys, not_ys))
+    neg_log_likelihoods = jnp.multiply(ys_mask, neg_log_likelihoods)
+    # print(neg_log_likelihoods)
+    return jnp.sum(neg_log_likelihoods)
 
 def kl_divergence(logits1, logits2):
     """
