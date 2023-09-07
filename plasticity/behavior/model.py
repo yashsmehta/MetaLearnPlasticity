@@ -7,7 +7,7 @@ import plasticity.behavior.utils as utils
 import plasticity.synapse as synapse
 
 
-def initialize_params(key, cfg, scale=0.1):
+def initialize_params(key, cfg, scale=0.01):
     """
     Initialize parameters for the network;
     There is no plasticity in the
@@ -182,7 +182,6 @@ def evaluate(
 
     test_cfg = cfg.copy()
     test_cfg.num_exps = 1
-    # TODO: need to change this back!
     test_cfg.trials_per_block = 80
     key, subkey = jax.random.split(key)
     params = initialize_params(subkey, cfg, scale=0.01)
@@ -197,7 +196,6 @@ def evaluate(
     ) = data_loader.generate_experiments_data(
         key,
         test_cfg,
-        params,
         generation_coeff,
         plasticity_func,
         mus,

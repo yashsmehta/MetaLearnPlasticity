@@ -16,7 +16,6 @@ from plasticity import inputs
 def generate_experiments_data(
     key,
     cfg,
-    params,
     plasticity_coeff,
     plasticity_func,
     odor_mus,
@@ -39,8 +38,8 @@ def generate_experiments_data(
     print("generating experiments data...")
 
     for exp_i in range(cfg.num_exps):
-        key, _ = split(key)
-        print(f"simulating experiment: {exp_i + 1}")
+        key, subkey = split(key)
+        params = model.initialize_params(subkey, cfg)
         (
             exp_xs,
             exp_odors,
@@ -63,7 +62,7 @@ def generate_experiments_data(
             for j in range(cfg.num_blocks)
         ]
         longest_trial_length = np.max(np.array(trial_lengths))
-        print(f"longest trial length: {longest_trial_length}")
+        print(f"Exp {exp_i + 1}, longest trial length: {longest_trial_length}")
 
         xs[str(exp_i)] = experiment_list_to_tensor(
             longest_trial_length, exp_xs, list_type="xs"
@@ -162,9 +161,10 @@ def generate_trial(
     expected_reward = np.mean(r_history)
 
     while True:
-        key, subkey = split(key)
+        key, _ = split(key)
         odor = int(bernoulli(key, 0.5))
         trial_odors.append(odor)
+        key, subkey = split(key)
         x = inputs.sample_inputs(key, odor_mus, odor_sigmas, odor)
         resampled_x = inputs.sample_inputs(subkey, odor_mus, odor_sigmas, odor)
         jit_network_forward = jax.jit(model.network_forward)

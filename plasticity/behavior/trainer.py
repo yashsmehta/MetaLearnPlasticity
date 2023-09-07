@@ -51,7 +51,6 @@ def train(cfg):
         ) = data_loader.generate_experiments_data(
             key,
             cfg,
-            params,
             generation_coeff,
             plasticity_func,
             mus,
@@ -126,6 +125,7 @@ def train(cfg):
             epoch_logs.append(epoch)
             loss_logs.append(loss)
 
+    key, _ = split(key)
     r2_score, percent_deviance = model.evaluate(
         key,
         cfg,
