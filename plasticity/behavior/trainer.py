@@ -18,8 +18,8 @@ def train(cfg):
     jax.config.update("jax_platform_name", "cpu")
     key = jax.random.PRNGKey(cfg.jobid)
     np.random.seed(cfg.jobid)
-    generation_coeff, plasticity_func = synapse.init_volterra(init="reward")
-    plasticity_coeff, _ = synapse.init_volterra(key, init=cfg.plasticity_init)
+    generation_coeff, plasticity_func = synapse.init_volterra(init=cfg.generation_coeff_init)
+    plasticity_coeff, _ = synapse.init_volterra(key, init=cfg.plasticity_coeff_init)
     coeff_mask = np.array(cfg.coeff_mask)
     plasticity_coeff = jnp.multiply(plasticity_coeff, coeff_mask)
 
