@@ -14,17 +14,22 @@ import pandas as pd
 from statistics import mean
 import time
 
+# [done] 1. plasticity coeffs are different for each hidden unit
+# [done] 2. would have to update the masking functionality.
+# 3. get vmap working
 
 def train(cfg):
     jax.config.update("jax_platform_name", "cpu")
     key = jax.random.PRNGKey(cfg.jobid)
     np.random.seed(cfg.jobid)
+    np.set_printoptions(suppress=True)
+    hidden_dim = cfg.layer_sizes[1]
     generation_coeff, plasticity_func = synapse.init_volterra(
-        init=cfg.generation_coeff_init
+        key=None, num_rules=hidden_dim, init=cfg.generation_coeff_init
     )
-    plasticity_coeff, _ = synapse.init_volterra(key, init=cfg.plasticity_coeff_init)
+    plasticity_coeff, _ = synapse.init_volterra(key, num_rules = hidden_dim, init=cfg.plasticity_coeff_init)
     coeff_mask = np.array(cfg.coeff_mask)
-    plasticity_coeff = jnp.multiply(plasticity_coeff, coeff_mask)
+    plasticity_coeff = jnp.einsum('ijkl, jkl -> ijkl', plasticity_coeff, coeff_mask)
 
     key, key2 = split(key)
     params = model.initialize_params(key2, cfg)

@@ -52,7 +52,7 @@ def celoss(
     cfg,
 ):
     coeff_mask = jnp.array(cfg.coeff_mask)
-    plasticity_coeff = jnp.multiply(plasticity_coeff, coeff_mask)
+    plasticity_coeff = jnp.einsum('ijkl, jkl -> ijkl', plasticity_coeff, coeff_mask)
     trial_lengths = jnp.sum(logits_mask, axis=1).astype(int)
 
     params_trajec, activations = model.simulate(
