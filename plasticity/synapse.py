@@ -21,47 +21,32 @@ def volterra_plasticity_function(x, y, z, volterra_coefficients):
     return dw
 
 
-def init_zeros():
-    return np.zeros((3, 3, 3))
+def init_zeros(num_rules):
+    return np.zeros((num_rules, 3, 3, 3))
 
 
-def init_random(random_key):
+def init_random(key, num_rules):
     assert (
-        random_key is not None
+        key is not None
     ), "For random initialization, a random key has to be given"
-    return generate_gaussian(random_key, (3, 3, 3), scale=1e-5)
+    return generate_gaussian(key, (num_rules, 3, 3, 3), scale=1e-5)
 
 
 def init_reward(parameters):
-    parameters[1][1][0] = 1
+    num_rules = parameters.shape[0]
+    # create a uniformly decaying array from 1 to 0 in numpy of length num_rules
+    # and multiply it with the parameters
+    lr_multiplier = np.linspace(1, 0, num_rules)
+    parameters[:,1,1,0] = 1.
+    np.einsum('i,ijkl->ijkl', lr_multiplier, parameters, out=parameters)
     return parameters
 
 
-def init_reward_with_decay(parameters):
-    parameters[1][1][0] = 0.2
-    parameters[0][0][1] = -0.03
-    return parameters
-
-
-def init_custom(parameters):
-    parameters[1][0][0] = 0.5
-    parameters[0][0][1] = -0.25
-    return parameters
-
-
-def init_oja(parameters):
-    parameters[1][1][0] = 1
-    parameters[0][2][1] = -1
-    return parameters
-
-
-def init_volterra(random_key=None, init=None):
+def init_volterra(key, num_rules, init=None):
     init_functions = {
-        "zeros": init_zeros,
-        "random": lambda: init_random(random_key),
-        "reward": lambda: init_reward(np.zeros((3, 3, 3))),
-        "reward-with-decay": lambda: init_reward_with_decay(np.zeros((3, 3, 3))),
-        "custom": lambda: init_custom(np.zeros((3, 3, 3))),
+        "zeros": init_zeros(num_rules),
+        "random": lambda: init_random(key, num_rules),
+        "reward": lambda: init_reward(np.zeros((num_rules, 3, 3, 3))),
     }
 
     if init not in init_functions:
