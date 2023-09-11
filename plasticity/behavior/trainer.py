@@ -11,6 +11,7 @@ import numpy as np
 from jax.random import split
 from pathlib import Path
 import pandas as pd
+from statistics import mean
 import time
 
 
@@ -18,7 +19,9 @@ def train(cfg):
     jax.config.update("jax_platform_name", "cpu")
     key = jax.random.PRNGKey(cfg.jobid)
     np.random.seed(cfg.jobid)
-    generation_coeff, plasticity_func = synapse.init_volterra(init=cfg.generation_coeff_init)
+    generation_coeff, plasticity_func = synapse.init_volterra(
+        init=cfg.generation_coeff_init
+    )
     plasticity_coeff, _ = synapse.init_volterra(key, init=cfg.plasticity_coeff_init)
     coeff_mask = np.array(cfg.coeff_mask)
     plasticity_coeff = jnp.multiply(plasticity_coeff, coeff_mask)
@@ -61,8 +64,6 @@ def train(cfg):
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(plasticity_coeff)
     coeff_logs, epoch_logs, loss_logs = [], [], []
-
-
 
     for epoch in range(cfg.num_epochs):
         for exp_i in range(cfg.num_exps):
@@ -138,14 +139,15 @@ def train(cfg):
 
     print(f"r2 score: {r2_score}")
     print(f"percent deviance: {percent_deviance}")
-    exit()
 
     coeff_logs = np.array(coeff_logs)
     expdata = coeff_logs_to_dict(coeff_logs)
     expdata["epoch"] = epoch_logs
     expdata["loss"] = loss_logs
     df = pd.DataFrame.from_dict(expdata)
-    df["r2_weights"], df["r2_activity"] = r2_score.weights, r2_score.activity
+    df["r2_weights"], df["r2_activity"] = mean(r2_score["weights"]), mean(
+        r2_score["activity"]
+    )
     df["percent_deviance"] = percent_deviance
 
     for key, value in cfg.items():

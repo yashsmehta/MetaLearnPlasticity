@@ -26,7 +26,7 @@ def initialize_params(key, cfg, scale=0.01):
         )
         for m, n in zip(layer_sizes[:-1], layer_sizes[1:])
     ]
-     
+
     if len(layer_sizes) != 2:
         # for multilayer networks, remove last layer and initialize weights to 1/n
         initial_params.pop()
@@ -181,10 +181,11 @@ def evaluate(
     """
 
     test_cfg = cfg.copy()
-    test_cfg.num_exps = 1
+    # use 30% of the number of training exps for testing
+    test_cfg.num_exps = cfg.num_exps // 3
     test_cfg.trials_per_block = 80
-    key, subkey = jax.random.split(key)
-    params = initialize_params(subkey, cfg, scale=0.01)
+    r2_score = {"weights": [], "activity": []}
+    percent_deviance = []
 
     (
         xs,
@@ -201,51 +202,60 @@ def evaluate(
         mus,
         sigmas,
     )
-    trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions["0"])), axis=1).astype(
-        int
-    )
 
-    # simulate model with "true" plasticity coefficients (generation_coeff)
-    params_trajec, activations = simulate(
-        params,
-        generation_coeff,
-        plasticity_func,
-        xs["0"],
-        rewards["0"],
-        expected_rewards["0"],
-        trial_lengths,
-    )
+    for exp_i in range(test_cfg.num_exps):
+        key, _ = jax.random.split(key)
+        params = initialize_params(key, cfg, scale=0.01)
+        # simulate model with "true" plasticity coefficients (generation_coeff)
+        trial_lengths = jnp.sum(
+            jnp.logical_not(jnp.isnan(decisions[str(exp_i)])), axis=1
+        ).astype(int)
+        params_trajec, activations = simulate(
+            params,
+            generation_coeff,
+            plasticity_func,
+            xs[str(exp_i)],
+            rewards[str(exp_i)],
+            expected_rewards[str(exp_i)],
+            trial_lengths,
+        )
 
-    # simulate model with learned plasticity coefficients (plasticity_coeff)
-    model_params_trajec, model_activations = simulate(
-        params,
-        plasticity_coeff,
-        plasticity_func,
-        xs["0"],
-        rewards["0"],
-        expected_rewards["0"],
-        trial_lengths,
-    )
+        # simulate model with learned plasticity coefficients (plasticity_coeff)
+        model_params_trajec, model_activations = simulate(
+            params,
+            plasticity_coeff,
+            plasticity_func,
+            xs[str(exp_i)],
+            rewards[str(exp_i)],
+            expected_rewards[str(exp_i)],
+            trial_lengths,
+        )
 
-    # simulate model with zeros plasticity coefficients for null model
-    plasticity_coeff_zeros, _ = synapse.init_volterra(init="zeros")
-    _, null_model_activations = simulate(
-        params,
-        plasticity_coeff_zeros,
-        plasticity_func,
-        xs["0"],
-        rewards["0"],
-        expected_rewards["0"],
-        trial_lengths,
-    )
+        # simulate model with zeros plasticity coefficients for null model
+        plasticity_coeff_zeros, _ = synapse.init_volterra(init="zeros")
+        _, null_model_activations = simulate(
+            params,
+            plasticity_coeff_zeros,
+            plasticity_func,
+            xs[str(exp_i)],
+            rewards[str(exp_i)],
+            expected_rewards[str(exp_i)],
+            trial_lengths,
+        )
 
-    r2_score = evaluate_r2_score(
-        params_trajec, activations, model_params_trajec, model_activations
-    )
+        r2_score_exp = evaluate_r2_score(
+            params_trajec, activations, model_params_trajec, model_activations
+        )
+        r2_score = {
+            dict_key: r2_score[dict_key] + r2_score_exp[dict_key]
+            for dict_key in r2_score.keys()
+        }
 
-    percent_deviance = evaluate_percent_deviance(
-        decisions["0"], model_activations, null_model_activations
-    )
+        percent_deviance.append(
+            evaluate_percent_deviance(
+                decisions[str(exp_i)], model_activations, null_model_activations
+            )
+        )
 
     return r2_score, percent_deviance
 
@@ -253,6 +263,11 @@ def evaluate(
 def evaluate_r2_score(
     params_trajec, activations, model_params_trajec, model_activations
 ):
+    """
+    should return a dict of R2 scores for weights and activity in
+    the format of {"weights": [R2 score], "activity": [R2 score]},
+    i.e. lists of length 1.
+    """
     r2_score = {}
 
     weight_trajec = jnp.array(params_trajec[0][0])
@@ -261,12 +276,12 @@ def evaluate_r2_score(
     model_weight_trajec = jnp.array(model_params_trajec[0][0])
     model_layer_activations = jnp.squeeze(model_activations[1])
 
-    r2_score["weights"] = utils.compute_r2_score(weight_trajec, model_weight_trajec)
+    r2_score["weights"] = [utils.compute_r2_score(weight_trajec, model_weight_trajec)]
     # note: this won't calculate the true R2 score between neural activity, since
     # after trial length the activities for both these would be the same (corresponding to x=0)
-    r2_score["activity"] = utils.compute_r2_score(
-        layer_activations, model_layer_activations
-    )
+    r2_score["activity"] = [
+        utils.compute_r2_score(layer_activations, model_layer_activations)
+    ]
     return r2_score
 
 
