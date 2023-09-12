@@ -39,6 +39,8 @@ def init_reward(parameters):
     lr_multiplier = np.linspace(1, 0, num_rules)
     parameters[:,1,1,0] = 1.
     np.einsum('i,ijkl->ijkl', lr_multiplier, parameters, out=parameters)
+    # plasticity rule for last neuron:
+    parameters[-1,1,1,0] = 1.
     return parameters
 
 

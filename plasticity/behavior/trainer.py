@@ -14,10 +14,6 @@ import pandas as pd
 from statistics import mean
 import time
 
-# [done] 1. plasticity coeffs are different for each hidden unit
-# [done] 2. would have to update the masking functionality.
-# 3. get vmap working
-
 
 def train(cfg):
     jax.config.update("jax_platform_name", "cpu")
@@ -127,10 +123,11 @@ def train(cfg):
             print(f"loss :{loss}")
             indices = coeff_mask.nonzero()
             ind_i, ind_j, ind_k = indices
-            for neuron in range(3):
+            for neuron in range(5):
+                print(f"neuron {neuron}: ")
                 for index in zip(ind_i, ind_j, ind_k):
                     print(
-                        f"A{index}, neuron {neuron}: ", plasticity_coeff[neuron][index]
+                        f"A{index}, ", plasticity_coeff[neuron][index]
                     )
                 print()
             print("\n")
@@ -151,6 +148,9 @@ def train(cfg):
 
     print(f"r2 score: {r2_score}")
     print(f"percent deviance: {percent_deviance}")
+    print("mean weights r2 score: ", mean(r2_score["weights"]))
+    print("mean activity r2 score: ", mean(r2_score["activity"]))
+    print("mean percent deviance: ", mean(percent_deviance))
     exit()
 
     coeff_logs = np.array(coeff_logs)
@@ -161,7 +161,7 @@ def train(cfg):
     df["r2_weights"], df["r2_activity"] = mean(r2_score["weights"]), mean(
         r2_score["activity"]
     )
-    df["percent_deviance"] = percent_deviance
+    df["percent_deviance"] = mean(percent_deviance)
 
     for key, value in cfg.items():
         if isinstance(value, (float, int)):
