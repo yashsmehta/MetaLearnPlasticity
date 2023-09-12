@@ -148,7 +148,7 @@ def train(cfg):
     df["r2_weights"], df["r2_activity"] = mean(r2_score["weights"]), mean(
         r2_score["activity"]
     )
-    df["percent_deviance"] = percent_deviance
+    df["percent_deviance"] = mean(percent_deviance)
 
     for key, value in cfg.items():
         if isinstance(value, (float, int)):
