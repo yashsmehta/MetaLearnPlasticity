@@ -136,6 +136,7 @@ def update_params(
 ):
     """assuming plasticity happens in the first layer only.
     [dw, db] = plasticity_func(activation, reward, w, plasticity_coeffs)
+    every hidden neuron has its own plasticity coefficients
     returns updated params
     """
     print("compiling model.update_params()...")
@@ -149,9 +150,9 @@ def update_params(
     activation = activations[0]
     w, b = params[0]
     # vmap over output neurons
-    vmap_inputs = jax.vmap(plasticity_func, in_axes=(None, None, 0, None))
+    vmap_outputs = jax.vmap(plasticity_func, in_axes=(None, None, 0, 0))
     # vmap over input neurons
-    vmap_synapses = jax.vmap(vmap_inputs, in_axes=(0, None, 0, None))
+    vmap_synapses = jax.vmap(vmap_outputs, in_axes=(0, None, 0, None))
     dw = vmap_synapses(activation, reward_term, w, plasticity_coeffs)
     # decide whether to update bias or not
     db = jnp.zeros_like(b)
@@ -161,7 +162,6 @@ def update_params(
     ), "dw and w should be of the same shape to prevent broadcasting \
         while adding"
     delta_params.append((dw, db))
-
     # add the last layer of no plasticity
     if len(params) > len(delta_params):
         delta_params.append((0.0, 0.0))
@@ -232,7 +232,11 @@ def evaluate(
         )
 
         # simulate model with zeros plasticity coefficients for null model
-        plasticity_coeff_zeros, _ = synapse.init_volterra(init="zeros")
+        hidden_dim = cfg.layer_sizes[1]
+        plasticity_coeff_zeros, _ = synapse.init_volterra(
+            None, num_rules=hidden_dim, init="zeros"
+        )
+
         _, null_model_activations = simulate(
             params,
             plasticity_coeff_zeros,

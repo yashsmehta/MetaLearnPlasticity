@@ -18,6 +18,7 @@ import time
 # [done] 2. would have to update the masking functionality.
 # 3. get vmap working
 
+
 def train(cfg):
     jax.config.update("jax_platform_name", "cpu")
     key = jax.random.PRNGKey(cfg.jobid)
@@ -27,9 +28,11 @@ def train(cfg):
     generation_coeff, plasticity_func = synapse.init_volterra(
         key=None, num_rules=hidden_dim, init=cfg.generation_coeff_init
     )
-    plasticity_coeff, _ = synapse.init_volterra(key, num_rules = hidden_dim, init=cfg.plasticity_coeff_init)
+    plasticity_coeff, _ = synapse.init_volterra(
+        key, num_rules=hidden_dim, init=cfg.plasticity_coeff_init
+    )
     coeff_mask = np.array(cfg.coeff_mask)
-    plasticity_coeff = jnp.einsum('ijkl, jkl -> ijkl', plasticity_coeff, coeff_mask)
+    plasticity_coeff = jnp.einsum("ijkl, jkl -> ijkl", plasticity_coeff, coeff_mask)
 
     key, key2 = split(key)
     params = model.initialize_params(key2, cfg)
@@ -124,8 +127,12 @@ def train(cfg):
             print(f"loss :{loss}")
             indices = coeff_mask.nonzero()
             ind_i, ind_j, ind_k = indices
-            for index in zip(ind_i, ind_j, ind_k):
-                print(f"A{index}", plasticity_coeff[index])
+            for neuron in range(3):
+                for index in zip(ind_i, ind_j, ind_k):
+                    print(
+                        f"A{index}, neuron {neuron}: ", plasticity_coeff[neuron][index]
+                    )
+                print()
             print("\n")
             coeff_logs.append(plasticity_coeff)
             epoch_logs.append(epoch)
@@ -144,6 +151,7 @@ def train(cfg):
 
     print(f"r2 score: {r2_score}")
     print(f"percent deviance: {percent_deviance}")
+    exit()
 
     coeff_logs = np.array(coeff_logs)
     expdata = coeff_logs_to_dict(coeff_logs)
