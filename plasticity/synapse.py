@@ -44,7 +44,7 @@ def init_reward(parameters):
 
 def init_volterra(key, num_rules, init=None):
     init_functions = {
-        "zeros": init_zeros(num_rules),
+        "zeros": lambda: init_zeros(num_rules),
         "random": lambda: init_random(key, num_rules),
         "reward": lambda: init_reward(np.zeros((num_rules, 3, 3, 3))),
     }
