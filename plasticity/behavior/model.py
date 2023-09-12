@@ -312,4 +312,4 @@ def evaluate_percent_deviance(decisions, model_activations, null_model_activatio
     print(f"model deviance: {model_deviance}")
     print(f"null deviance: {null_deviance}")
     percent_deviance = 100 * (null_deviance - model_deviance) / null_deviance
-    return percent_deviance
+    return percent_deviance.item()
