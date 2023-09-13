@@ -29,7 +29,6 @@ def train(cfg):
 
     params = model.initialize_params(key, cfg)
     mus, sigmas = inputs.generate_input_parameters(cfg)
-    exit()
 
     # are we running on CPU or GPU?
     device = jax.lib.xla_bridge.get_backend().platform
@@ -56,7 +55,7 @@ def train(cfg):
             key,
             cfg,
             generation_coeff,
-            plasticity_func,
+            generation_func,
             mus,
             sigmas,
         )
@@ -79,18 +78,20 @@ def train(cfg):
             for j, length in enumerate(trial_lengths):
                 logits_mask[j][length:] = 0
 
-            # loss = losses.celoss(
-            #     params,
-            #     plasticity_coeff,
-            #     plasticity_func,
-            #     resampled_xs[str(exp_i)],
-            #     rewards[str(exp_i)],
-            #     expected_rewards[str(exp_i)],
-            #     neural_recordings[str(exp_i)],
-            #     decisions[str(exp_i)],
-            #     logits_mask,
-            #     cfg,
-            # )
+            loss = losses.celoss(
+                params,
+                plasticity_coeff,
+                plasticity_func,
+                resampled_xs[str(exp_i)],
+                rewards[str(exp_i)],
+                expected_rewards[str(exp_i)],
+                neural_recordings[str(exp_i)],
+                decisions[str(exp_i)],
+                logits_mask,
+                cfg,
+            )
+            print("loss", loss)
+            exit()
 
             loss, meta_grads = loss_value_and_grad(
                 params,

@@ -1,4 +1,5 @@
 from plasticity.behavior.utils import generate_gaussian
+import jax
 import jax.numpy as jnp
 import numpy as np
 
@@ -21,21 +22,21 @@ def volterra_plasticity_function(x, y, z, volterra_coefficients):
     return dw
 
 
-def mlp_forward_pass(params, inputs):
+def mlp_forward_pass(mlp_params, inputs):
     """Forward pass for the MLP
     Args:
-        params (list): list of tuples (weights, biases) for each layer
+        mlp_params (list): list of tuples (weights, biases) for each layer
         inputs (array): input data
     Returns:
         array: output of the network
     """
     activation = inputs
-    for w, b in params[:-1]:  # for all but the last layer
+    for w, b in mlp_params[:-1]:  # for all but the last layer
         activation = jax.nn.leaky_relu(jnp.dot(activation, w) + b)
-    final_w, final_b = params[-1]  # for the last layer
+    final_w, final_b = mlp_params[-1]  # for the last layer
     logits = jnp.dot(activation, final_w) + final_b
     output = jnp.tanh(logits)
-    return output
+    return jnp.squeeze(output)
 
 
 def mlp_plasticity_function(x, y, z, mlp_params):

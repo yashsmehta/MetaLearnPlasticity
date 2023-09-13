@@ -38,7 +38,7 @@ def compute_neural_loss(logits_mask, recording_sparsity, neural_recordings, laye
     return neural_loss
 
 
-@partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
+# @partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
 def celoss(
     params,
     plasticity_coeff,
@@ -51,10 +51,14 @@ def celoss(
     logits_mask,
     cfg,
 ):
-    coeff_mask = jnp.array(cfg.coeff_mask)
-    plasticity_coeff = jnp.multiply(plasticity_coeff, coeff_mask)
-    trial_lengths = jnp.sum(logits_mask, axis=1).astype(int)
+    loss = 0.0
+    if cfg.plasticity_model == "volterra":
+        coeff_mask = jnp.array(cfg.coeff_mask)
+        plasticity_coeff = jnp.multiply(plasticity_coeff, coeff_mask)
+        # add L1 regularization only for volterra model plasticity coefficients
+        loss = cfg.l1_regularization * jnp.sum(jnp.abs(plasticity_coeff))
 
+    trial_lengths = jnp.sum(logits_mask, axis=1).astype(int)
     params_trajec, activations = model.simulate(
         params,
         plasticity_coeff,
@@ -64,7 +68,6 @@ def celoss(
         expected_rewards,
         trial_lengths,
     )
-    # why does logit_mask have an effect??!!
     logits = jnp.squeeze(activations[-1])
     # mask out the logits after the trial length
     logits = jnp.multiply(logits, logits_mask)
@@ -73,7 +76,6 @@ def celoss(
     behavior_loss = compute_cross_entropy(decisions, logits)
     neural_loss = compute_neural_loss(logits_mask, cfg.neural_recording_sparsity, neural_recordings, activations[-2])
     # add a L1 regularization term to the loss
-    loss = cfg.l1_regularization * jnp.sum(jnp.abs(plasticity_coeff))
     # python string search if "neural" in cfg.fit_data
     if "neural" in cfg.fit_data:
         loss += neural_loss
