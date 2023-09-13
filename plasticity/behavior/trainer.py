@@ -19,16 +19,17 @@ def train(cfg):
     jax.config.update("jax_platform_name", "cpu")
     key = jax.random.PRNGKey(cfg.jobid)
     np.random.seed(cfg.jobid)
-    generation_coeff, plasticity_func = synapse.init_volterra(
-        init=cfg.generation_coeff_init
+    generation_coeff, generation_func = synapse.init_plasticity(
+        key, cfg, mode="generation_model"
     )
-    plasticity_coeff, _ = synapse.init_volterra(key, init=cfg.plasticity_coeff_init)
-    coeff_mask = np.array(cfg.coeff_mask)
-    plasticity_coeff = jnp.multiply(plasticity_coeff, coeff_mask)
+    key, subkey = split(key)
+    plasticity_coeff, plasticity_func = synapse.init_plasticity(
+        subkey, cfg, mode="plasticity_model"
+    )
 
-    key, key2 = split(key)
-    params = model.initialize_params(key2, cfg)
+    params = model.initialize_params(key, cfg)
     mus, sigmas = inputs.generate_input_parameters(cfg)
+    exit()
 
     # are we running on CPU or GPU?
     device = jax.lib.xla_bridge.get_backend().platform
