@@ -3,7 +3,9 @@ import jax.numpy as jnp
 from functools import partial
 import optax
 import plasticity.behavior.model as model
+import plasticity.behavior.data_loader as data_loader
 import numpy as np
+import jax.numpy as jnp
 
 
 def compute_cross_entropy(decisions, logits):
@@ -70,7 +72,8 @@ def celoss(
         trial_lengths,
     )
     logits = jnp.squeeze(activations[-1])
-    logits_mask = data_loader.get_logits_mask(logits, trial_lengths)
+
+    logits_mask = data_loader.get_logits_mask(decisions)
     # mask out the logits after the trial length
     logits = jnp.multiply(logits, logits_mask)
     decisions = jnp.nan_to_num(decisions, copy=False, nan=0.0)
