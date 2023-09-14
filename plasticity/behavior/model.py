@@ -171,7 +171,7 @@ def update_params(
 
 
 def evaluate(
-    key, cfg, generation_coeff, plasticity_coeff, plasticity_func, mus, sigmas
+    key, cfg, generation_coeff, generation_func, plasticity_coeff, plasticity_func, mus, sigmas
 ):
     """Evaluate logits, weight trajectory for generation_coeff and plasticity_coeff
        with new initial params, for a single new experiment
@@ -182,14 +182,13 @@ def evaluate(
 
     test_cfg = cfg.copy()
     # use 30% of the number of training exps for testing
-    test_cfg.num_exps = cfg.num_exps // 3
+    test_cfg.num_exps = (cfg.num_exps // 3) + 1
     test_cfg.trials_per_block = 80
     r2_score = {"weights": [], "activity": []}
     percent_deviance = []
 
     (
         xs,
-        odors,
         neural_recordings,
         decisions,
         rewards,
@@ -198,25 +197,24 @@ def evaluate(
         key,
         test_cfg,
         generation_coeff,
-        plasticity_func,
+        generation_func,
         mus,
         sigmas,
     )
 
     for exp_i in range(test_cfg.num_exps):
+        exp_i = str(exp_i)
         key, _ = jax.random.split(key)
         params = initialize_params(key, cfg, scale=0.01)
         # simulate model with "true" plasticity coefficients (generation_coeff)
-        trial_lengths = jnp.sum(
-            jnp.logical_not(jnp.isnan(decisions[str(exp_i)])), axis=1
-        ).astype(int)
+        trial_lengths = data_loader.get_trial_lengths(decisions[exp_i])
         params_trajec, activations = simulate(
             params,
             generation_coeff,
-            plasticity_func,
-            xs[str(exp_i)],
-            rewards[str(exp_i)],
-            expected_rewards[str(exp_i)],
+            generation_func,
+            xs[exp_i],
+            rewards[exp_i],
+            expected_rewards[exp_i],
             trial_lengths,
         )
 
@@ -225,21 +223,21 @@ def evaluate(
             params,
             plasticity_coeff,
             plasticity_func,
-            xs[str(exp_i)],
-            rewards[str(exp_i)],
-            expected_rewards[str(exp_i)],
+            xs[exp_i],
+            rewards[exp_i],
+            expected_rewards[exp_i],
             trial_lengths,
         )
 
         # simulate model with zeros plasticity coefficients for null model
-        plasticity_coeff_zeros, _ = synapse.init_volterra(init="zeros")
+        plasticity_coeff_zeros, zero_plasticity_func = synapse.init_volterra(init="zeros")
         _, null_model_activations = simulate(
             params,
             plasticity_coeff_zeros,
-            plasticity_func,
-            xs[str(exp_i)],
-            rewards[str(exp_i)],
-            expected_rewards[str(exp_i)],
+            zero_plasticity_func,
+            xs[exp_i],
+            rewards[exp_i],
+            expected_rewards[exp_i],
             trial_lengths,
         )
 
@@ -253,7 +251,7 @@ def evaluate(
 
         percent_deviance.append(
             evaluate_percent_deviance(
-                decisions[str(exp_i)], model_activations, null_model_activations
+                decisions[exp_i], model_activations, null_model_activations
             )
         )
 

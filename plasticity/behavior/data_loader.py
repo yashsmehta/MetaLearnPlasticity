@@ -2,6 +2,7 @@ import numpy as np
 import jax
 from jax.random import bernoulli, split
 from jax.nn import sigmoid
+import jax.numpy as jnp
 import collections
 import scipy.io as sio
 import os
@@ -38,6 +39,8 @@ def generate_experiments_data(
     print("generating experiments data...")
 
     for exp_i in range(cfg.num_exps):
+        np.random.seed(cfg.jobid * (exp_i + 1))
+        exp_i = str(exp_i)
         key, subkey = split(key)
         params = model.initialize_params(subkey, cfg)
         (
@@ -61,27 +64,25 @@ def generate_experiments_data(
             [len(exp_decisions[j][i]) for i in range(cfg.trials_per_block)]
             for j in range(cfg.num_blocks)
         ]
-        longest_trial_length = np.max(np.array(trial_lengths))
-        print(f"Exp {exp_i + 1}, longest trial length: {longest_trial_length}")
+        max_trial_length = np.max(np.array(trial_lengths))
+        print("Exp " + exp_i + f", longest trial length: {max_trial_length}")
 
-        xs[str(exp_i)] = experiment_list_to_tensor(
-            longest_trial_length, exp_xs, list_type="xs"
+        xs[exp_i] = experiment_list_to_tensor(
+            max_trial_length, exp_xs, list_type="xs"
         )
-        odors[str(exp_i)] = experiment_list_to_tensor(
-            longest_trial_length, exp_odors, list_type="odors"
+        odors[exp_i] = experiment_list_to_tensor(
+            max_trial_length, exp_odors, list_type="odors"
         )
-        neural_recordings[str(exp_i)] = experiment_list_to_tensor(
-            longest_trial_length, exp_neural_recordings, list_type="neural_recordings"
+        neural_recordings[exp_i] = experiment_list_to_tensor(
+            max_trial_length, exp_neural_recordings, list_type="neural_recordings"
         )
-        decisions[str(exp_i)] = experiment_list_to_tensor(
-            longest_trial_length, exp_decisions, list_type="decisions"
+        decisions[exp_i] = experiment_list_to_tensor(
+            max_trial_length, exp_decisions, list_type="decisions"
         )
-        rewards[str(exp_i)] = np.array(exp_rewards, dtype=float).flatten()
-        expected_rewards[str(exp_i)] = np.array(
-            exp_expected_rewards, dtype=float
-        ).flatten()
+        rewards[exp_i] = np.array(exp_rewards, dtype=float).flatten()
+        expected_rewards[exp_i] = np.array(exp_expected_rewards, dtype=float).flatten()
 
-    return xs, odors, neural_recordings, decisions, rewards, expected_rewards
+    return xs, neural_recordings, decisions, rewards, expected_rewards
 
 
 def generate_experiment(
@@ -223,6 +224,7 @@ def load_adi_expdata(cfg):
     for exp_i, file in enumerate(os.listdir(cfg.data_dir)):
         if exp_i >= cfg.num_exps:
             break
+        exp_i = str(exp_i)
         print(exp_i, file)
         data = sio.loadmat(cfg.data_dir + file)
         X, Y, R = data["X"], data["Y"], data["R"]
@@ -244,30 +246,28 @@ def load_adi_expdata(cfg):
             exp_xs[index].append(x)
 
         trial_lengths = [len(exp_decisions[i]) for i in range(num_trials)]
-        longest_trial_length = np.max(np.array(trial_lengths))
+        max_trial_length = np.max(np.array(trial_lengths))
 
-        d_tensor = np.full((num_trials, longest_trial_length), np.nan)
+        d_tensor = np.full((num_trials, max_trial_length), np.nan)
         for i in range(num_trials):
             for j in range(trial_lengths[i]):
                 d_tensor[i][j] = exp_decisions[i][j]
-        decisions[str(exp_i)] = d_tensor
+        decisions[exp_i] = d_tensor
 
-        xs_tensor = np.full((num_trials, longest_trial_length, element_dim), 0)
+        xs_tensor = np.full((num_trials, max_trial_length, element_dim), 0)
         for i in range(num_trials):
             for j in range(trial_lengths[i]):
                 xs_tensor[i][j] = exp_xs[i][j]
-        xs[str(exp_i)] = xs_tensor
+        xs[exp_i] = xs_tensor
 
-        rewards[str(exp_i)] = R
-        expected_rewards[str(exp_i)] = expected_reward_for_exp_data(
-            R, cfg.moving_avg_window
-        )
+        rewards[exp_i] = R
+        expected_rewards[exp_i] = expected_reward_for_exp_data(R, cfg.moving_avg_window)
 
     return xs, decisions, rewards, expected_rewards
 
 
 def load_single_adi_experiment(cfg):
-    exp_i = 0
+    exp_i = "0"
     element_dim = 2
 
     xs, decisions, rewards, expected_rewards = {}, {}, {}, {}
@@ -292,23 +292,31 @@ def load_single_adi_experiment(cfg):
         exp_xs[index].append(x)
 
     trial_lengths = [len(exp_decisions[i]) for i in range(num_trials)]
-    longest_trial_length = np.max(np.array(trial_lengths))
+    max_trial_length = np.max(np.array(trial_lengths))
 
-    d_tensor = np.full((num_trials, longest_trial_length), np.nan)
+    d_tensor = np.full((num_trials, max_trial_length), np.nan)
     for i in range(num_trials):
         for j in range(trial_lengths[i]):
             d_tensor[i][j] = exp_decisions[i][j]
-    decisions[str(exp_i)] = d_tensor
+    decisions[exp_i] = d_tensor
 
-    xs_tensor = np.full((num_trials, longest_trial_length, element_dim), 0)
+    xs_tensor = np.full((num_trials, max_trial_length, element_dim), 0)
     for i in range(num_trials):
         for j in range(trial_lengths[i]):
             xs_tensor[i][j] = exp_xs[i][j]
-    xs[str(exp_i)] = xs_tensor
+    xs[exp_i] = xs_tensor
 
-    rewards[str(exp_i)] = R
-    expected_rewards[str(exp_i)] = expected_reward_for_exp_data(
-        R, cfg.moving_avg_window
-    )
+    rewards[exp_i] = R
+    expected_rewards[exp_i] = expected_reward_for_exp_data(R, cfg.moving_avg_window)
 
     return xs, decisions, rewards, expected_rewards
+
+
+def get_trial_lengths(decisions):
+    trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions)), axis=1).astype(int)
+    return trial_lengths
+
+
+def get_logits_mask(decisions):
+    logits_mask = jnp.logical_not(jnp.isnan(decisions)).astype(int)
+    return logits_mask
