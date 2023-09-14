@@ -78,20 +78,18 @@ def train(cfg):
             for j, length in enumerate(trial_lengths):
                 logits_mask[j][length:] = 0
 
-            loss = losses.celoss(
-                params,
-                plasticity_coeff,
-                plasticity_func,
-                resampled_xs[str(exp_i)],
-                rewards[str(exp_i)],
-                expected_rewards[str(exp_i)],
-                neural_recordings[str(exp_i)],
-                decisions[str(exp_i)],
-                logits_mask,
-                cfg,
-            )
-            print("loss", loss)
-            exit()
+            # loss = losses.celoss(
+            #     params,
+            #     plasticity_coeff,
+            #     plasticity_func,
+            #     resampled_xs[str(exp_i)],
+            #     rewards[str(exp_i)],
+            #     expected_rewards[str(exp_i)],
+            #     neural_recordings[str(exp_i)],
+            #     decisions[str(exp_i)],
+            #     logits_mask,
+            #     cfg,
+            # )
 
             loss, meta_grads = loss_value_and_grad(
                 params,
@@ -119,11 +117,15 @@ def train(cfg):
         if epoch % cfg.log_interval == 0:
             print(f"epoch :{epoch}")
             print(f"loss :{loss}")
-            indices = coeff_mask.nonzero()
-            ind_i, ind_j, ind_k = indices
-            for index in zip(ind_i, ind_j, ind_k):
-                print(f"A{index}", plasticity_coeff[index])
-            print("\n")
+            if cfg.plasticity_model == "volterra":
+                indices = cfg.coeff_mask.nonzero()
+                ind_i, ind_j, ind_k = indices
+                for index in zip(ind_i, ind_j, ind_k):
+                    print(f"A{index}", plasticity_coeff[index])
+                print("\n")
+            else:
+                print("MLP plasticity coeffs: ", plasticity_coeff)
+
             coeff_logs.append(plasticity_coeff)
             epoch_logs.append(epoch)
             loss_logs.append(loss)
@@ -134,6 +136,7 @@ def train(cfg):
         cfg,
         generation_coeff,
         plasticity_coeff,
+        generation_func,
         plasticity_func,
         mus,
         sigmas,
@@ -141,6 +144,7 @@ def train(cfg):
 
     print(f"r2 score: {r2_score}")
     print(f"percent deviance: {percent_deviance}")
+    exit()
 
     coeff_logs = np.array(coeff_logs)
     expdata = coeff_logs_to_dict(coeff_logs)

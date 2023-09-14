@@ -171,7 +171,7 @@ def update_params(
 
 
 def evaluate(
-    key, cfg, generation_coeff, plasticity_coeff, plasticity_func, mus, sigmas
+    key, cfg, generation_coeff, plasticity_coeff, generation_func, plasticity_func, mus, sigmas
 ):
     """Evaluate logits, weight trajectory for generation_coeff and plasticity_coeff
        with new initial params, for a single new experiment
@@ -182,7 +182,7 @@ def evaluate(
 
     test_cfg = cfg.copy()
     # use 30% of the number of training exps for testing
-    test_cfg.num_exps = cfg.num_exps // 3
+    test_cfg.num_exps = (cfg.num_exps // 3) + 1
     test_cfg.trials_per_block = 80
     r2_score = {"weights": [], "activity": []}
     percent_deviance = []
@@ -198,7 +198,7 @@ def evaluate(
         key,
         test_cfg,
         generation_coeff,
-        plasticity_func,
+        generation_func,
         mus,
         sigmas,
     )
@@ -213,7 +213,7 @@ def evaluate(
         params_trajec, activations = simulate(
             params,
             generation_coeff,
-            plasticity_func,
+            generation_func,
             xs[str(exp_i)],
             rewards[str(exp_i)],
             expected_rewards[str(exp_i)],
@@ -232,11 +232,11 @@ def evaluate(
         )
 
         # simulate model with zeros plasticity coefficients for null model
-        plasticity_coeff_zeros, _ = synapse.init_volterra(init="zeros")
+        plasticity_coeff_zeros, zero_plasticity_func = synapse.init_volterra(init="zeros")
         _, null_model_activations = simulate(
             params,
             plasticity_coeff_zeros,
-            plasticity_func,
+            zero_plasticity_func,
             xs[str(exp_i)],
             rewards[str(exp_i)],
             expected_rewards[str(exp_i)],

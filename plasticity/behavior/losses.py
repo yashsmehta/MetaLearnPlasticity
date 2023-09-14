@@ -38,7 +38,7 @@ def compute_neural_loss(logits_mask, recording_sparsity, neural_recordings, laye
     return neural_loss
 
 
-# @partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
+@partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
 def celoss(
     params,
     plasticity_coeff,
