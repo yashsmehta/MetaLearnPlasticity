@@ -123,3 +123,20 @@ def save_logs(cfg, df):
         df.to_csv(csv_file, mode="a", header=write_header, index=False)
         print("saved logs!")
     return
+
+
+def assert_valid_config(cfg):
+    """
+    asserts that the configuration is valid
+    """
+    assert (
+        len(cfg.reward_ratios) == cfg.num_blocks
+    ), "length of reward ratios should be equal to number of blocks!"
+    assert cfg.plasticity_model in ["volterra", "mlp"], "only volterra, mlp plasticity model supported!"
+    assert cfg.generation_model in ["volterra", "mlp"], "only volterra, mlp generation model supported!"
+    assert cfg.meta_mlp_layer_sizes[0] == 3 and cfg.meta_mlp_layer_sizes[-1] == 1, "meta mlp input dim must be 3, and output dim 1!"
+    assert cfg.layer_sizes[-1] == 1, "output dim must be 1!"
+    assert cfg.neural_recording_sparsity >= 0. and cfg.neural_recording_sparsity <= 1., "neural recording sparsity must be between 0 and 1!"
+    if cfg.use_experimental_data:
+        assert "behavior" in cfg.fit_data and "neural" not in cfg.fit_data, "only behavior experimental data available!"
+    return
