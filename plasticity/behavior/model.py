@@ -171,7 +171,7 @@ def update_params(
 
 
 def evaluate(
-    key, cfg, generation_coeff, plasticity_coeff, generation_func, plasticity_func, mus, sigmas
+    key, cfg, generation_coeff, generation_func, plasticity_coeff, plasticity_func, mus, sigmas
 ):
     """Evaluate logits, weight trajectory for generation_coeff and plasticity_coeff
        with new initial params, for a single new experiment
