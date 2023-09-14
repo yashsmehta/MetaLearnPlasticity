@@ -203,19 +203,20 @@ def evaluate(
     )
 
     for exp_i in range(test_cfg.num_exps):
+        exp_i = str(exp_i)
         key, _ = jax.random.split(key)
         params = initialize_params(key, cfg, scale=0.01)
         # simulate model with "true" plasticity coefficients (generation_coeff)
         trial_lengths = jnp.sum(
-            jnp.logical_not(jnp.isnan(decisions[str(exp_i)])), axis=1
+            jnp.logical_not(jnp.isnan(decisions[exp_i])), axis=1
         ).astype(int)
         params_trajec, activations = simulate(
             params,
             generation_coeff,
             generation_func,
-            xs[str(exp_i)],
-            rewards[str(exp_i)],
-            expected_rewards[str(exp_i)],
+            xs[exp_i],
+            rewards[exp_i],
+            expected_rewards[exp_i],
             trial_lengths,
         )
 
@@ -224,9 +225,9 @@ def evaluate(
             params,
             plasticity_coeff,
             plasticity_func,
-            xs[str(exp_i)],
-            rewards[str(exp_i)],
-            expected_rewards[str(exp_i)],
+            xs[exp_i],
+            rewards[exp_i],
+            expected_rewards[exp_i],
             trial_lengths,
         )
 
@@ -236,9 +237,9 @@ def evaluate(
             params,
             plasticity_coeff_zeros,
             zero_plasticity_func,
-            xs[str(exp_i)],
-            rewards[str(exp_i)],
-            expected_rewards[str(exp_i)],
+            xs[exp_i],
+            rewards[exp_i],
+            expected_rewards[exp_i],
             trial_lengths,
         )
 
@@ -252,7 +253,7 @@ def evaluate(
 
         percent_deviance.append(
             evaluate_percent_deviance(
-                decisions[str(exp_i)], model_activations, null_model_activations
+                decisions[exp_i], model_activations, null_model_activations
             )
         )
 

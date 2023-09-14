@@ -64,6 +64,7 @@ def train(cfg):
 
     for epoch in range(cfg.num_epochs):
         for exp_i in range(cfg.num_exps):
+            exp_i = str(exp_i)
             # calculate the length of each trial by checking for NaNs
             # note: this can all be calculated inside the loss function!
             trial_lengths = jnp.sum(
@@ -91,11 +92,11 @@ def train(cfg):
                 params,
                 plasticity_coeff,
                 plasticity_func,
-                resampled_xs[str(exp_i)],
-                rewards[str(exp_i)],
-                expected_rewards[str(exp_i)],
-                neural_recordings[str(exp_i)],
-                decisions[str(exp_i)],
+                resampled_xs[exp_i],
+                rewards[exp_i],
+                expected_rewards[exp_i],
+                neural_recordings[exp_i],
+                decisions[exp_i],
                 logits_mask,
                 cfg,
             )
