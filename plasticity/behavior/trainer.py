@@ -42,10 +42,8 @@ def train(cfg):
             expected_rewards,
         ) = data_loader.load_single_adi_experiment(cfg)
     else:
-        # can remove odors altogether
         (
             resampled_xs,
-            odors,
             neural_recordings,
             decisions,
             rewards,

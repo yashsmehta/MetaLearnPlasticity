@@ -38,8 +38,9 @@ def generate_experiments_data(
     print("generating experiments data...")
 
     for exp_i in range(cfg.num_exps):
-        key, subkey = split(key)
         np.random.seed(cfg.jobid * (exp_i + 1))
+        exp_i = str(exp_i)
+        key, subkey = split(key)
         params = model.initialize_params(subkey, cfg)
         (
             exp_xs,
@@ -63,26 +64,26 @@ def generate_experiments_data(
             for j in range(cfg.num_blocks)
         ]
         longest_trial_length = np.max(np.array(trial_lengths))
-        print(f"Exp {exp_i + 1}, longest trial length: {longest_trial_length}")
+        print("Exp " + exp_i + f", longest trial length: {longest_trial_length}")
 
-        xs[str(exp_i)] = experiment_list_to_tensor(
+        xs[exp_i] = experiment_list_to_tensor(
             longest_trial_length, exp_xs, list_type="xs"
         )
-        odors[str(exp_i)] = experiment_list_to_tensor(
+        odors[exp_i] = experiment_list_to_tensor(
             longest_trial_length, exp_odors, list_type="odors"
         )
-        neural_recordings[str(exp_i)] = experiment_list_to_tensor(
+        neural_recordings[exp_i] = experiment_list_to_tensor(
             longest_trial_length, exp_neural_recordings, list_type="neural_recordings"
         )
-        decisions[str(exp_i)] = experiment_list_to_tensor(
+        decisions[exp_i] = experiment_list_to_tensor(
             longest_trial_length, exp_decisions, list_type="decisions"
         )
-        rewards[str(exp_i)] = np.array(exp_rewards, dtype=float).flatten()
-        expected_rewards[str(exp_i)] = np.array(
+        rewards[exp_i] = np.array(exp_rewards, dtype=float).flatten()
+        expected_rewards[exp_i] = np.array(
             exp_expected_rewards, dtype=float
         ).flatten()
 
-    return xs, odors, neural_recordings, decisions, rewards, expected_rewards
+    return xs, neural_recordings, decisions, rewards, expected_rewards
 
 
 def generate_experiment(
@@ -224,6 +225,7 @@ def load_adi_expdata(cfg):
     for exp_i, file in enumerate(os.listdir(cfg.data_dir)):
         if exp_i >= cfg.num_exps:
             break
+        exp_i = str(exp_i)
         print(exp_i, file)
         data = sio.loadmat(cfg.data_dir + file)
         X, Y, R = data["X"], data["Y"], data["R"]
@@ -251,16 +253,16 @@ def load_adi_expdata(cfg):
         for i in range(num_trials):
             for j in range(trial_lengths[i]):
                 d_tensor[i][j] = exp_decisions[i][j]
-        decisions[str(exp_i)] = d_tensor
+        decisions[exp_i] = d_tensor
 
         xs_tensor = np.full((num_trials, longest_trial_length, element_dim), 0)
         for i in range(num_trials):
             for j in range(trial_lengths[i]):
                 xs_tensor[i][j] = exp_xs[i][j]
-        xs[str(exp_i)] = xs_tensor
+        xs[exp_i] = xs_tensor
 
-        rewards[str(exp_i)] = R
-        expected_rewards[str(exp_i)] = expected_reward_for_exp_data(
+        rewards[exp_i] = R
+        expected_rewards[exp_i] = expected_reward_for_exp_data(
             R, cfg.moving_avg_window
         )
 
@@ -268,7 +270,7 @@ def load_adi_expdata(cfg):
 
 
 def load_single_adi_experiment(cfg):
-    exp_i = 0
+    exp_i = "0" 
     element_dim = 2
 
     xs, decisions, rewards, expected_rewards = {}, {}, {}, {}
@@ -299,16 +301,16 @@ def load_single_adi_experiment(cfg):
     for i in range(num_trials):
         for j in range(trial_lengths[i]):
             d_tensor[i][j] = exp_decisions[i][j]
-    decisions[str(exp_i)] = d_tensor
+    decisions[exp_i] = d_tensor
 
     xs_tensor = np.full((num_trials, longest_trial_length, element_dim), 0)
     for i in range(num_trials):
         for j in range(trial_lengths[i]):
             xs_tensor[i][j] = exp_xs[i][j]
-    xs[str(exp_i)] = xs_tensor
+    xs[exp_i] = xs_tensor
 
-    rewards[str(exp_i)] = R
-    expected_rewards[str(exp_i)] = expected_reward_for_exp_data(
+    rewards[exp_i] = R
+    expected_rewards[exp_i] = expected_reward_for_exp_data(
         R, cfg.moving_avg_window
     )
 

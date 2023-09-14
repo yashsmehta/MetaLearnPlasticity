@@ -189,7 +189,6 @@ def evaluate(
 
     (
         xs,
-        odors,
         neural_recordings,
         decisions,
         rewards,
