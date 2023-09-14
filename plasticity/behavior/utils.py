@@ -4,6 +4,7 @@ from jax import vmap
 import numpy as np
 import sklearn.metrics
 from scipy.special import kl_div
+from pathlib import Path
 
 
 def generate_gaussian(key, shape, scale=0.1):
@@ -48,6 +49,8 @@ def kl_divergence(logits1, logits2):
 def create_nested_list(num_outer, num_inner):
     return [[[] for _ in range(num_inner)] for _ in range(num_outer)]
 
+def truncated_sigmoid(x, epsilon=1e-6):
+    return jnp.clip(jax.nn.sigmoid(x), epsilon, 1 - epsilon)
 
 def experiment_list_to_tensor(longest_trial_length, nested_list, list_type):
     # note: trial lengths are not all the same, so we need to pad with nans
@@ -75,19 +78,33 @@ def experiment_list_to_tensor(longest_trial_length, nested_list, list_type):
     return jnp.array(tensor)
 
 
-def coeff_logs_to_dict(coeff_logs):
-    """Converts coeff_logs to a dictionary with keys corresponding to
-    the plasticity coefficient names (A_ijk)
-    """
-    coeff_dict = {}
-    for i in range(3):
-        for j in range(3):
-            for k in range(3):
-                # if coeff_mask[i, j, k] == 1:
-                coeff_dict[f"A_{i}{j}{k}"] = coeff_logs[:, i, j, k]
+def print_and_log_training_info(cfg, expdata, plasticity_coeff, epoch, loss):
 
-    return coeff_dict
+    print(f"epoch :{epoch}")
+    print(f"loss :{loss}")
 
+    if cfg.plasticity_model == "volterra":
+        coeff_mask = np.array(cfg.coeff_mask)
+        plasticity_coeff = np.multiply(plasticity_coeff, coeff_mask)
+        for i in range(3):
+            for j in range(3):
+                for k in range(3):
+                    dict_key = f"A_{i}{j}{k}"
+                    expdata.setdefault(dict_key, []).append(plasticity_coeff[i, j, k])
 
-def truncated_sigmoid(x, epsilon=1e-6):
-    return jnp.clip(jax.nn.sigmoid(x), epsilon, 1 - epsilon)
+        ind_i, ind_j, ind_k = coeff_mask.nonzero()
+        for index in zip(ind_i, ind_j, ind_k):
+            print(f"A{index}", plasticity_coeff[index])
+        print("\n")
+    else:
+        print("MLP plasticity coeffs: ", plasticity_coeff)
+
+    expdata.setdefault("epoch", []).append(epoch)
+    # check if loss is nan
+    if np.isnan(loss):
+        print("loss is nan!, exiting...")
+        exit()
+    expdata.setdefault("loss", []).append(loss)
+
+    return expdata
+
