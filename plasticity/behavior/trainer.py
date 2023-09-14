@@ -65,15 +65,6 @@ def train(cfg):
     for epoch in range(cfg.num_epochs):
         for exp_i in range(cfg.num_exps):
             exp_i = str(exp_i)
-            # calculate the length of each trial by checking for NaNs
-            # note: this can all be calculated inside the loss function!
-            trial_lengths = jnp.sum(
-                jnp.logical_not(jnp.isnan(decisions[str(exp_i)])), axis=1
-            ).astype(int)
-
-            logits_mask = np.ones(decisions[str(exp_i)].shape)
-            for j, length in enumerate(trial_lengths):
-                logits_mask[j][length:] = 0
 
             # loss = losses.celoss(
             #     params,
@@ -84,7 +75,6 @@ def train(cfg):
             #     expected_rewards[str(exp_i)],
             #     neural_recordings[str(exp_i)],
             #     decisions[str(exp_i)],
-            #     logits_mask,
             #     cfg,
             # )
 
@@ -97,7 +87,6 @@ def train(cfg):
                 expected_rewards[exp_i],
                 neural_recordings[exp_i],
                 decisions[exp_i],
-                logits_mask,
                 cfg,
             )
 

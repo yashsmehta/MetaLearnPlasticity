@@ -79,9 +79,7 @@ def generate_experiments_data(
             longest_trial_length, exp_decisions, list_type="decisions"
         )
         rewards[exp_i] = np.array(exp_rewards, dtype=float).flatten()
-        expected_rewards[exp_i] = np.array(
-            exp_expected_rewards, dtype=float
-        ).flatten()
+        expected_rewards[exp_i] = np.array(exp_expected_rewards, dtype=float).flatten()
 
     return xs, neural_recordings, decisions, rewards, expected_rewards
 
@@ -262,15 +260,13 @@ def load_adi_expdata(cfg):
         xs[exp_i] = xs_tensor
 
         rewards[exp_i] = R
-        expected_rewards[exp_i] = expected_reward_for_exp_data(
-            R, cfg.moving_avg_window
-        )
+        expected_rewards[exp_i] = expected_reward_for_exp_data(R, cfg.moving_avg_window)
 
     return xs, decisions, rewards, expected_rewards
 
 
 def load_single_adi_experiment(cfg):
-    exp_i = "0" 
+    exp_i = "0"
     element_dim = 2
 
     xs, decisions, rewards, expected_rewards = {}, {}, {}, {}
@@ -310,8 +306,18 @@ def load_single_adi_experiment(cfg):
     xs[exp_i] = xs_tensor
 
     rewards[exp_i] = R
-    expected_rewards[exp_i] = expected_reward_for_exp_data(
-        R, cfg.moving_avg_window
-    )
+    expected_rewards[exp_i] = expected_reward_for_exp_data(R, cfg.moving_avg_window)
 
     return xs, decisions, rewards, expected_rewards
+
+
+def get_exp_trial_lengths(decisions):
+    trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions)), axis=1).astype(int)
+    return trial_lengths
+
+
+def get_exp_logits_mask(logits, trial_lengths):
+    logits_mask = np.ones_like(logits)
+    for j, length in enumerate(trial_lengths):
+        logits_mask[j][length:] = 0
+    return logits_mask

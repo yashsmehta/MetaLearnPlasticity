@@ -207,9 +207,7 @@ def evaluate(
         key, _ = jax.random.split(key)
         params = initialize_params(key, cfg, scale=0.01)
         # simulate model with "true" plasticity coefficients (generation_coeff)
-        trial_lengths = jnp.sum(
-            jnp.logical_not(jnp.isnan(decisions[exp_i])), axis=1
-        ).astype(int)
+        trial_lengths = data_loader.get_trial_lengths(decisions[exp_i])
         params_trajec, activations = simulate(
             params,
             generation_coeff,
