@@ -39,7 +39,7 @@ def generate_experiments_data(
     print("generating experiments data...")
 
     for exp_i in range(cfg.num_exps):
-        np.random.seed(cfg.jobid * (exp_i + 1))
+        np.random.seed((cfg.jobid + 1) * (exp_i + 1))
         exp_i = str(exp_i)
         key, subkey = split(key)
         params = model.initialize_params(subkey, cfg)
