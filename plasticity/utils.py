@@ -111,8 +111,8 @@ def print_and_log_training_info(cfg, expdata, plasticity_coeff, epoch, loss):
 
 
 def save_logs(cfg, df):
+    logdata_path = Path(cfg.log_dir)
     if cfg.log_expdata:
-        logdata_path = Path(cfg.log_dir)
         if cfg.use_experimental_data:
             logdata_path = logdata_path / "expdata" / cfg.exp_name
         else:
