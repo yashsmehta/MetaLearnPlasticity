@@ -136,7 +136,11 @@ def assert_valid_config(cfg):
     assert cfg.generation_model in ["volterra", "mlp"], "only volterra, mlp generation model supported!"
     assert cfg.meta_mlp_layer_sizes[0] == 3 and cfg.meta_mlp_layer_sizes[-1] == 1, "meta mlp input dim must be 3, and output dim 1!"
     assert cfg.layer_sizes[-1] == 1, "output dim must be 1!"
+    assert len(cfg.layer_sizes) == 2 or len(cfg.layer_sizes) == 3, "only 2, 3 layer networks supported!"
     assert cfg.neural_recording_sparsity >= 0. and cfg.neural_recording_sparsity <= 1., "neural recording sparsity must be between 0 and 1!"
     if cfg.use_experimental_data:
         assert "behavior" in cfg.fit_data and "neural" not in cfg.fit_data, "only behavior experimental data available!"
+    if cfg.plasticity_model == "mlp":
+        assert cfg.plasticity_coeff_init in ["random"], "only random plasticity coeff init for MLP supported!"
+    assert "behavior" in cfg.fit_data or "neural" in cfg.fit_data, "fit data must contain either behavior or neural, or both!"
     return
