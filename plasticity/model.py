@@ -139,6 +139,8 @@ def update_params(
     returns updated params
     """
     print("compiling model.update_params()...")
+    input_dim = params[0][0].shape[0]
+    lr = 1. / input_dim 
     # using expected reward or just the reward:
     reward_term = reward - expected_reward
     # reward_term = reward
@@ -165,7 +167,7 @@ def update_params(
     # add the last layer of no plasticity
     if len(params) > len(delta_params):
         delta_params.append((0.0, 0.0))
-    params = [(w + dw, b + db) for (w, b), (dw, db) in zip(params, delta_params)]
+    params = [(w + lr*dw, b + lr*db) for (w, b), (dw, db) in zip(params, delta_params)]
 
     return params
 
