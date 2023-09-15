@@ -18,6 +18,7 @@ import pickle
 def train(cfg):
     jax.config.update("jax_platform_name", "cpu")
     utils.assert_valid_config(cfg)
+    np.set_printoptions(suppress=True)
     key = jax.random.PRNGKey(cfg.jobid)
     generation_coeff, generation_func = synapse.init_plasticity(
         key, cfg, mode="generation_model"
