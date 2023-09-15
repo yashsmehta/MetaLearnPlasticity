@@ -8,9 +8,9 @@ import scipy.io as sio
 import os
 from functools import partial
 
-import plasticity.behavior.model as model
-from plasticity.behavior.utils import experiment_list_to_tensor
-from plasticity.behavior.utils import create_nested_list
+import plasticity.model as model
+from plasticity.utils import experiment_list_to_tensor
+from plasticity.utils import create_nested_list
 from plasticity import inputs
 
 

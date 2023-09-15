@@ -2,8 +2,8 @@ import jax
 import jax.numpy as jnp
 from functools import partial
 import optax
-import plasticity.behavior.model as model
-import plasticity.behavior.data_loader as data_loader
+import plasticity.model as model
+import plasticity.data_loader as data_loader
 import numpy as np
 import jax.numpy as jnp
 

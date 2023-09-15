@@ -1,4 +1,4 @@
-import plasticity.behavior.trainer as trainer
+import plasticity.trainer as trainer
 from omegaconf import OmegaConf
 import numpy as np
 

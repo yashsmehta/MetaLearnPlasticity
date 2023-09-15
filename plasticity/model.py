@@ -2,8 +2,8 @@ import jax.numpy as jnp
 import numpy as np
 import jax
 from functools import partial
-import plasticity.behavior.data_loader as data_loader
-import plasticity.behavior.utils as utils
+import plasticity.data_loader as data_loader
+import plasticity.utils as utils
 import plasticity.synapse as synapse
 
 

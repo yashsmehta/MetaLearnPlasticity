@@ -1,9 +1,9 @@
 import plasticity.inputs as inputs
 from plasticity import synapse
-import plasticity.behavior.data_loader as data_loader
-import plasticity.behavior.losses as losses
-import plasticity.behavior.model as model
-import plasticity.behavior.utils as utils
+import plasticity.data_loader as data_loader
+import plasticity.losses as losses
+import plasticity.model as model
+import plasticity.utils as utils
 import jax
 import jax.numpy as jnp
 import optax
