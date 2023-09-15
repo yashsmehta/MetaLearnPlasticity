@@ -133,5 +133,5 @@ def train(cfg):
     print(df.tail(5))
     logdata_path = utils.save_logs(cfg, df)
     if cfg.plasticity_model == "mlp" and cfg.log_expdata:
-        with open(logdata_path / "mlp_params.pkl", 'wb') as f:
+        with open(logdata_path / f"mlp_params_{cfg.jobid}.pkl", 'wb') as f:
             pickle.dump(mlp_params, f)
