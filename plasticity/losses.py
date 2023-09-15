@@ -8,7 +8,7 @@ import numpy as np
 import jax.numpy as jnp
 
 
-def compute_cross_entropy(decisions, logits):
+def behavior_ce_loss(decisions, logits):
     # returns the mean of the element-wise cross entropy
     losses = optax.sigmoid_binary_cross_entropy(logits, decisions)
     return jnp.mean(losses)
@@ -20,8 +20,8 @@ def compute_mse(neural_recordings, layer_activations):
     return jnp.mean(losses)
 
 
-def compute_neural_loss(
-    logits_mask, recording_sparsity, neural_recordings, layer_activations
+def neural_mse_loss(
+    key, logits_mask, recording_sparsity, measurement_error, neural_recordings, layer_activations
 ):
     # sparsify the neural recordings, and then compute the mse
     recording_sparsity = float(recording_sparsity)
@@ -33,6 +33,12 @@ def compute_neural_loss(
     )
     recordings_mask = np.zeros(num_neurons)
     recordings_mask[recordings_id] = 1.0
+    # add gaussian noise to the neural recordings
+    upper = jnp.abs(neural_recordings)
+    lower = -1. * upper
+    measurement_noise = measurement_error * jax.random.truncated_normal(key, lower, upper)
+    neural_recordings = neural_recordings + measurement_noise
+
     neural_recordings = jnp.einsum("ijk, k -> ijk", neural_recordings, recordings_mask)
     layer_activations = jnp.einsum("ijk, k -> ijk", layer_activations, recordings_mask)
     # layer activations need to be masked as well for trials that are shorter than the max trial length,
@@ -44,6 +50,7 @@ def compute_neural_loss(
 
 @partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
 def celoss(
+    key,
     params,
     plasticity_coeff,
     plasticity_func,
@@ -78,17 +85,20 @@ def celoss(
     logits = jnp.multiply(logits, logits_mask)
     decisions = jnp.nan_to_num(decisions, copy=False, nan=0.0)
 
-    # python string search if "neural" in cfg.fit_data
+    # add neural activity MSE loss
     if "neural" in cfg.fit_data:
-        neural_loss = compute_neural_loss(
+        neural_loss = neural_mse_loss(
+            key,
             logits_mask,
             cfg.neural_recording_sparsity,
+            cfg.measurement_error,
             neural_recordings,
             activations[-2],
         )
         loss += neural_loss
+    # add behavior cross entropy loss
     if "behavior" in cfg.fit_data:
-        behavior_loss = compute_cross_entropy(decisions, logits)
+        behavior_loss = behavior_ce_loss(decisions, logits)
         loss += behavior_loss
 
     return loss

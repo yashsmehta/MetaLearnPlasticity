@@ -59,16 +59,18 @@ def train(cfg):
             sigmas,
         )
 
-    loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=1)
+    loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=2)
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(plasticity_coeff)
     expdata = {}
 
     for epoch in range(cfg.num_epochs):
         for exp_i in range(cfg.num_exps):
+            noise_key = jax.random.PRNGKey((cfg.jobid + 1) * (exp_i + 1))
             exp_i = str(exp_i)
 
             # loss = losses.celoss(
+            #     key,
             #     params,
             #     plasticity_coeff,
             #     plasticity_func,
@@ -79,8 +81,11 @@ def train(cfg):
             #     decisions[str(exp_i)],
             #     cfg,
             # )
+            # print(f"loss: {loss}")
+            # exit()
 
             loss, meta_grads = loss_value_and_grad(
+                noise_key,
                 params,
                 plasticity_coeff,
                 plasticity_func,
