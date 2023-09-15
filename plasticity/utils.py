@@ -98,6 +98,7 @@ def print_and_log_training_info(cfg, expdata, plasticity_coeff, epoch, loss):
         print("\n")
     else:
         print("MLP plasticity coeffs: ", plasticity_coeff)
+        expdata.setdefault("mlp_params", []).append(plasticity_coeff)
 
     expdata.setdefault("epoch", []).append(epoch)
     # check if loss is nan
@@ -122,7 +123,7 @@ def save_logs(cfg, df):
         write_header = not csv_file.exists()
         df.to_csv(csv_file, mode="a", header=write_header, index=False)
         print("saved logs!")
-    return
+    return logdata_path
 
 
 def assert_valid_config(cfg):

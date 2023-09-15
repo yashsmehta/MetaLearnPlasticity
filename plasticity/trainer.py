@@ -12,6 +12,7 @@ from jax.random import split
 import pandas as pd
 from statistics import mean
 import time
+import pickle
 
 
 def train(cfg):
@@ -115,6 +116,8 @@ def train(cfg):
 
     print(f"r2 score: {r2_score}")
     print(f"percent deviance: {percent_deviance}")
+    if cfg.plasticity_model == "mlp":
+        mlp_params = expdata.pop("mlp_params")
 
     df = pd.DataFrame.from_dict(expdata)
     df["r2_weights"], df["r2_activity"] = mean(r2_score["weights"]), mean(
@@ -128,4 +131,7 @@ def train(cfg):
 
     # pd.set_option("display.max_columns", None)
     print(df.tail(5))
-    utils.save_logs(cfg, df)
+    logdata_path = utils.save_logs(cfg, df)
+    if cfg.plasticity_model == "mlp" and cfg.log_expdata:
+        with open(logdata_path / "mlp_params.pkl", 'wb') as f:
+            pickle.dump(mlp_params, f)
