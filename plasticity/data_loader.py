@@ -19,8 +19,6 @@ def generate_experiments_data(
     cfg,
     plasticity_coeff,
     plasticity_func,
-    odor_mus,
-    odor_sigmas,
 ):
     """Simulate all fly experiments with given plasticity coefficients
     Returns:
@@ -41,6 +39,7 @@ def generate_experiments_data(
     for exp_i in range(cfg.num_exps):
         seed = (cfg.jobid + 1) * (exp_i + 1)
         np.random.seed(seed)
+        odor_mus, odor_sigmas = inputs.generate_input_parameters(cfg)
         exp_i = str(exp_i)
         key, subkey = split(key)
         params = model.initialize_params(key, cfg)

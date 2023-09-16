@@ -30,14 +30,13 @@ def train(cfg):
     )
 
     params = model.initialize_params(key, cfg)
-    mus, sigmas = inputs.generate_input_parameters(cfg)
 
     # are we running on CPU or GPU?
     device = jax.lib.xla_bridge.get_backend().platform
     print("platform: ", device)
     print(f"layer size: {cfg.layer_sizes}")
 
-    key, _ = split(key)
+    key, subkey = split(key)
 
     if cfg.use_experimental_data:
         (
@@ -54,12 +53,10 @@ def train(cfg):
             rewards,
             expected_rewards,
         ) = data_loader.generate_experiments_data(
-            key,
+            subkey,
             cfg,
             generation_coeff,
             generation_func,
-            mus,
-            sigmas,
         )
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=2)
     optimizer = optax.adam(learning_rate=1e-3)
@@ -118,8 +115,6 @@ def train(cfg):
         generation_func,
         plasticity_coeff,
         plasticity_func,
-        mus,
-        sigmas,
     )
 
     print(f"r2 score: {r2_score}")
