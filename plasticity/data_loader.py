@@ -39,10 +39,11 @@ def generate_experiments_data(
     print("generating experiments data...")
 
     for exp_i in range(cfg.num_exps):
-        np.random.seed((cfg.jobid + 1) * (exp_i + 1))
+        seed = (cfg.jobid + 1) * (exp_i + 1)
+        np.random.seed(seed)
         exp_i = str(exp_i)
         key, subkey = split(key)
-        params = model.initialize_params(subkey, cfg)
+        params = model.initialize_params(key, cfg)
         # print("prob_output:")
         (
             exp_xs,
@@ -52,7 +53,7 @@ def generate_experiments_data(
             exp_rewards,
             exp_expected_rewards,
         ) = generate_experiment(
-            key,
+            subkey,
             cfg,
             params,
             plasticity_coeff,
