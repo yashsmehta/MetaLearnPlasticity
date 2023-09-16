@@ -114,17 +114,11 @@ def init_plasticity(key, cfg, mode):
         if cfg.generation_model == "volterra":
             return init_volterra(key, init=cfg.generation_coeff_init)
         elif cfg.generation_model == "mlp":
-            assert (
-                cfg.generation_coeff_init == "random"
-            ), "only random init supported for mlp"
             return init_plasticity_mlp(key, cfg.meta_mlp_layer_sizes)
     elif "plasticity" in mode:
         if cfg.plasticity_model == "volterra":
             return init_volterra(key, init=cfg.plasticity_coeff_init)
         elif cfg.plasticity_model == "mlp":
-            assert (
-                cfg.plasticity_coeff_init == "random"
-            ), "only random init supported for mlp"
             return init_plasticity_mlp(key, cfg.meta_mlp_layer_sizes)
 
     raise RuntimeError(
