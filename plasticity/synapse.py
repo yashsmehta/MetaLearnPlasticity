@@ -95,9 +95,6 @@ def init_volterra(key=None, init=None):
 
 
 def init_plasticity_mlp(key, layer_sizes, scale=0.01):
-    assert (
-        layer_sizes[-1] == 1 and layer_sizes[0] == 3
-    ), "output dim should be 1, and input dim should be 3"
 
     mlp_params = [
         (

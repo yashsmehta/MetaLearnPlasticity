@@ -188,12 +188,9 @@ def evaluate(
         Percent deviance explained (scalar)
     """
 
-    test_cfg = cfg.copy()
-    # use 30% of the number of training exps for testing
-    test_cfg.num_exps = (cfg.num_exps // 3) + 1
-    test_cfg.trials_per_block = 80
     r2_score = {"weights": [], "activity": []}
     percent_deviance = []
+    cfg.num_exps = cfg.num_eval_exps
 
     (
         resampled_xs,
@@ -203,12 +200,12 @@ def evaluate(
         expected_rewards,
     ) = data_loader.generate_experiments_data(
         key,
-        test_cfg,
+        cfg,
         generation_coeff,
         generation_func,
     )
 
-    for exp_i in range(test_cfg.num_exps):
+    for exp_i in range(cfg.num_eval_exps):
         exp_i = str(exp_i)
         key, _ = jax.random.split(key)
         params = initialize_params(key, cfg, scale=0.01)

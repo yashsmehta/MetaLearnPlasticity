@@ -18,7 +18,7 @@ import sys
 
 def train(cfg):
     jax.config.update("jax_platform_name", "cpu")
-    utils.assert_valid_config(cfg)
+    cfg = utils.validate_config(cfg)
     np.set_printoptions(suppress=True, threshold=sys.maxsize)
     key = jax.random.PRNGKey(cfg.jobid)
     generation_coeff, generation_func = synapse.init_plasticity(
@@ -38,6 +38,7 @@ def train(cfg):
 
     key, subkey = split(key)
 
+    start = time.time()
     if cfg.use_experimental_data:
         (
             resampled_xs,
@@ -58,11 +59,11 @@ def train(cfg):
             generation_coeff,
             generation_func,
         )
+    print(f"generated data in: {round(time.time() - start, 3)}!")
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=2)
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(plasticity_coeff)
     expdata = {}
-
     for epoch in range(cfg.num_epochs):
         for exp_i in range(cfg.num_exps):
             noise_key = jax.random.PRNGKey((cfg.jobid + 1) * (exp_i + 1))
@@ -106,7 +107,6 @@ def train(cfg):
             expdata = utils.print_and_log_training_info(
                 cfg, expdata, plasticity_coeff, epoch, loss
             )
-
     key, _ = split(key)
     r2_score, percent_deviance = model.evaluate(
         key,
@@ -127,9 +127,12 @@ def train(cfg):
         r2_score["activity"]
     )
     df["percent_deviance"] = mean(percent_deviance)
+    run_time = round(time.time() - start, 3)
+    print(f"run time: {run_time}s")
+    df["run_time"] = run_time
 
     for key, value in cfg.items():
-        if isinstance(value, (float, int)):
+        if isinstance(value, (float, int, str)):
             df[key] = value
 
     # pd.set_option("display.max_columns", None)

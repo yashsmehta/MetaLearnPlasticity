@@ -111,9 +111,9 @@ def save_logs(cfg, df):
     return logdata_path
 
 
-def assert_valid_config(cfg):
+def validate_config(cfg):
     """
-    asserts that the configuration is valid
+    asserts that the configuration is valid, and removes any useless keys
     """
     assert (
         len(cfg.reward_ratios) == cfg.num_blocks
@@ -131,4 +131,12 @@ def assert_valid_config(cfg):
     assert "behavior" in cfg.fit_data or "neural" in cfg.fit_data, "fit data must contain either behavior or neural, or both!"
     if cfg.use_experimental_data:
         assert cfg.num_exps <= len(os.listdir(cfg.data_dir)), "Not enough experimental data"
-    return
+
+    if cfg["plasticity_model"] == "mlp":
+        del cfg["coeff_mask"]
+        del cfg["l1_regularization"]
+        cfg["trainable_coeffs"] = 5 * (cfg["meta_mlp_layer_sizes"][1]) + 1
+    if "neural" not in cfg["fit_data"]:
+        del cfg["neural_recording_sparsity"]
+        del cfg["measurement_error"]
+    return cfg
