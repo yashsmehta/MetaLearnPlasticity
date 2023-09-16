@@ -48,7 +48,7 @@ def neural_mse_loss(
     return neural_loss
 
 
-# @partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
+@partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
 def celoss(
     key,
     params,
@@ -80,9 +80,13 @@ def celoss(
     )
     logits = jnp.squeeze(activations[-1])
 
+    logits_mask = data_loader.get_logits_mask(decisions)
+    # mask out the logits after the trial length
+    logits = jnp.multiply(logits, logits_mask)
+    decisions = jnp.nan_to_num(decisions, copy=False, nan=0.0)
+
     # add neural activity MSE loss
     if "neural" in cfg.fit_data:
-        logits_mask = data_loader.get_logits_mask(decisions)
         neural_loss = neural_mse_loss(
             key,
             logits_mask,
@@ -92,11 +96,9 @@ def celoss(
             activations[-2],
         )
         loss += neural_loss
-
     # add behavior cross entropy loss
     if "behavior" in cfg.fit_data:
-        mask = ~jnp.isnan(decisions)
-        behavior_loss = behavior_ce_loss(decisions[mask], logits[mask])
+        behavior_loss = behavior_ce_loss(decisions, logits)
         loss += behavior_loss
 
     return loss

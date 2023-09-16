@@ -1,14 +1,14 @@
 import plasticity.inputs as inputs
-from plasticity import synapse
+import plasticity.synapse as synapse
 import plasticity.data_loader as data_loader
 import plasticity.losses as losses
 import plasticity.model as model
 import plasticity.utils as utils
 import jax
 import jax.numpy as jnp
+from jax.random import split
 import optax
 import numpy as np
-from jax.random import split
 import pandas as pd
 from statistics import mean
 import time
