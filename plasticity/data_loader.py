@@ -216,7 +216,6 @@ def expected_reward_for_exp_data(R, moving_avg_window):
 
 
 def load_adi_expdata(cfg):
-    assert cfg.num_exps <= len(os.listdir(cfg.data_dir)), "Not enough experimental data"
     print("Loading experimental data...")
 
     element_dim = 2

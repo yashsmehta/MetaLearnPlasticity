@@ -4,6 +4,7 @@ from jax import vmap
 import numpy as np
 from scipy.special import kl_div
 from pathlib import Path
+import os
 
 
 def generate_gaussian(key, shape, scale=0.1):
@@ -128,4 +129,6 @@ def assert_valid_config(cfg):
     if cfg.plasticity_model == "mlp":
         assert cfg.plasticity_coeff_init in ["random"], "only random plasticity coeff init for MLP supported!"
     assert "behavior" in cfg.fit_data or "neural" in cfg.fit_data, "fit data must contain either behavior or neural, or both!"
+    if cfg.use_experimental_data:
+        assert cfg.num_exps <= len(os.listdir(cfg.data_dir)), "Not enough experimental data"
     return
