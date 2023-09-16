@@ -16,8 +16,6 @@ def initialize_params(key, cfg, scale=0.01, last_layer_multiplier=5.0):
         list of tuples of weights and biases for each layer
     """
     layer_sizes = cfg.layer_sizes
-    output_dim = layer_sizes[-1]
-    assert output_dim == 1, "output_dim should be 1, as that is the prob(choose odor)"
 
     initial_params = [
         (
@@ -28,7 +26,7 @@ def initialize_params(key, cfg, scale=0.01, last_layer_multiplier=5.0):
         for m, n in zip(layer_sizes[:-1], layer_sizes[1:])
     ]
 
-    if len(layer_sizes) != 2:
+    if len(layer_sizes) > 2:
         # for multilayer networks, remove last layer and initialize weights to 1/n
         initial_params.pop()
         hidden_dim = layer_sizes[-2]
@@ -182,8 +180,6 @@ def evaluate(
     generation_func,
     plasticity_coeff,
     plasticity_func,
-    mus,
-    sigmas,
 ):
     """Evaluate logits, weight trajectory for generation_coeff and plasticity_coeff
        with new initial params, for a single new experiment
@@ -210,8 +206,6 @@ def evaluate(
         test_cfg,
         generation_coeff,
         generation_func,
-        mus,
-        sigmas,
     )
 
     for exp_i in range(test_cfg.num_exps):
