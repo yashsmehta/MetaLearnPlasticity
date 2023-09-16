@@ -43,6 +43,7 @@ def generate_experiments_data(
         exp_i = str(exp_i)
         key, subkey = split(key)
         params = model.initialize_params(subkey, cfg)
+        # print("prob_output:")
         (
             exp_xs,
             exp_odors,
@@ -67,9 +68,7 @@ def generate_experiments_data(
         max_trial_length = np.max(np.array(trial_lengths))
         print("Exp " + exp_i + f", longest trial length: {max_trial_length}")
 
-        xs[exp_i] = experiment_list_to_tensor(
-            max_trial_length, exp_xs, list_type="xs"
-        )
+        xs[exp_i] = experiment_list_to_tensor(max_trial_length, exp_xs, list_type="xs")
         odors[exp_i] = experiment_list_to_tensor(
             max_trial_length, exp_odors, list_type="odors"
         )
@@ -81,6 +80,8 @@ def generate_experiments_data(
         )
         rewards[exp_i] = np.array(exp_rewards, dtype=float).flatten()
         expected_rewards[exp_i] = np.array(exp_expected_rewards, dtype=float).flatten()
+        # print("odors: ", odors[exp_i])
+        # print("rewards: ", rewards[exp_i])
 
     return xs, neural_recordings, decisions, rewards, expected_rewards
 
@@ -180,6 +181,7 @@ def generate_trial(
         decisions.append(sampled_output)
 
         if sampled_output == 1:
+            # print(prob_output)
             reward = rewards_in_arena[odor]
             r_history.appendleft(reward)
             rewards_in_arena[odor] = 0

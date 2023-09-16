@@ -13,12 +13,13 @@ import pandas as pd
 from statistics import mean
 import time
 import pickle
+import sys
 
 
 def train(cfg):
     jax.config.update("jax_platform_name", "cpu")
     utils.assert_valid_config(cfg)
-    np.set_printoptions(suppress=True)
+    np.set_printoptions(suppress=True, threshold=sys.maxsize)
     key = jax.random.PRNGKey(cfg.jobid)
     generation_coeff, generation_func = synapse.init_plasticity(
         key, cfg, mode="generation_model"
@@ -35,6 +36,8 @@ def train(cfg):
     device = jax.lib.xla_bridge.get_backend().platform
     print("platform: ", device)
     print(f"layer size: {cfg.layer_sizes}")
+
+    key, _ = split(key)
 
     if cfg.use_experimental_data:
         (
@@ -58,7 +61,6 @@ def train(cfg):
             mus,
             sigmas,
         )
-
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=2)
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(plasticity_coeff)
@@ -139,5 +141,5 @@ def train(cfg):
     print(df.tail(5))
     logdata_path = utils.save_logs(cfg, df)
     if cfg.plasticity_model == "mlp" and cfg.log_expdata:
-        with open(logdata_path / f"mlp_params_{cfg.jobid}.pkl", 'wb') as f:
+        with open(logdata_path / f"mlp_params_{cfg.jobid}.pkl", "wb") as f:
             pickle.dump(mlp_params, f)

@@ -5,9 +5,10 @@ from functools import partial
 import plasticity.data_loader as data_loader
 import plasticity.utils as utils
 import plasticity.synapse as synapse
+import sklearn.metrics
 
 
-def initialize_params(key, cfg, scale=0.01):
+def initialize_params(key, cfg, scale=0.01, last_layer_multiplier=5.0):
     """
     Initialize parameters for the network;
     There is no plasticity in the
@@ -33,7 +34,7 @@ def initialize_params(key, cfg, scale=0.01):
         hidden_dim = layer_sizes[-2]
         initial_params.append(
             (
-                jnp.ones((hidden_dim, 1)) / hidden_dim,
+                last_layer_multiplier * jnp.ones((hidden_dim, 1)) / hidden_dim,
                 jnp.zeros((1,)),
             )
         )
@@ -50,7 +51,7 @@ def network_forward(params, inputs):
     activations = [inputs]
     activation = inputs
     for w, b in params[:-1]:
-        activation = jax.nn.sigmoid(activation @ w + b)
+        activation = jnp.tanh(activation @ w + b)
         activations.append(activation)
 
     final_w, final_b = params[-1]
@@ -140,7 +141,7 @@ def update_params(
     """
     print("compiling model.update_params()...")
     input_dim = params[0][0].shape[0]
-    lr = 1. / input_dim 
+    lr = 1.0 / input_dim
     # using expected reward or just the reward:
     reward_term = reward - expected_reward
     # reward_term = reward
@@ -167,13 +168,22 @@ def update_params(
     # add the last layer of no plasticity
     if len(params) > len(delta_params):
         delta_params.append((0.0, 0.0))
-    params = [(w + lr*dw, b + lr*db) for (w, b), (dw, db) in zip(params, delta_params)]
+    params = [
+        (w + lr * dw, b + lr * db) for (w, b), (dw, db) in zip(params, delta_params)
+    ]
 
     return params
 
 
 def evaluate(
-    key, cfg, generation_coeff, generation_func, plasticity_coeff, plasticity_func, mus, sigmas
+    key,
+    cfg,
+    generation_coeff,
+    generation_func,
+    plasticity_coeff,
+    plasticity_func,
+    mus,
+    sigmas,
 ):
     """Evaluate logits, weight trajectory for generation_coeff and plasticity_coeff
        with new initial params, for a single new experiment
@@ -190,7 +200,7 @@ def evaluate(
     percent_deviance = []
 
     (
-        xs,
+        resampled_xs,
         neural_recordings,
         decisions,
         rewards,
@@ -208,13 +218,14 @@ def evaluate(
         exp_i = str(exp_i)
         key, _ = jax.random.split(key)
         params = initialize_params(key, cfg, scale=0.01)
-        # simulate model with "true" plasticity coefficients (generation_coeff)
         trial_lengths = data_loader.get_trial_lengths(decisions[exp_i])
+        logits_mask = data_loader.get_logits_mask(decisions[exp_i])
+        # simulate model with "true" plasticity coefficients (generation_coeff)
         params_trajec, activations = simulate(
             params,
             generation_coeff,
             generation_func,
-            xs[exp_i],
+            resampled_xs[exp_i],
             rewards[exp_i],
             expected_rewards[exp_i],
             trial_lengths,
@@ -225,26 +236,32 @@ def evaluate(
             params,
             plasticity_coeff,
             plasticity_func,
-            xs[exp_i],
+            resampled_xs[exp_i],
             rewards[exp_i],
             expected_rewards[exp_i],
             trial_lengths,
         )
 
         # simulate model with zeros plasticity coefficients for null model
-        plasticity_coeff_zeros, zero_plasticity_func = synapse.init_volterra(init="zeros")
+        plasticity_coeff_zeros, zero_plasticity_func = synapse.init_volterra(
+            init="zeros"
+        )
         _, null_model_activations = simulate(
             params,
             plasticity_coeff_zeros,
             zero_plasticity_func,
-            xs[exp_i],
+            resampled_xs[exp_i],
             rewards[exp_i],
             expected_rewards[exp_i],
             trial_lengths,
         )
 
         r2_score_exp = evaluate_r2_score(
-            params_trajec, activations, model_params_trajec, model_activations
+            logits_mask,
+            params_trajec,
+            activations,
+            model_params_trajec,
+            model_activations,
         )
         r2_score = {
             dict_key: r2_score[dict_key] + r2_score_exp[dict_key]
@@ -261,7 +278,7 @@ def evaluate(
 
 
 def evaluate_r2_score(
-    params_trajec, activations, model_params_trajec, model_activations
+    logits_mask, params_trajec, activations, model_params_trajec, model_activations
 ):
     """
     should return a dict of R2 scores for weights and activity in
@@ -269,18 +286,26 @@ def evaluate_r2_score(
     i.e. lists of length 1.
     """
     r2_score = {}
+    num_trials = logits_mask.shape[0]
+    weight_trajec = np.array(params_trajec[0][0]).reshape(num_trials, -1)
+    layer_activations = np.squeeze(activations[1])
 
-    weight_trajec = jnp.array(params_trajec[0][0])
-    layer_activations = jnp.squeeze(activations[1])
+    model_weight_trajec = np.array(model_params_trajec[0][0]).reshape(num_trials, -1)
+    model_layer_activations = np.squeeze(model_activations[1])
 
-    model_weight_trajec = jnp.array(model_params_trajec[0][0])
-    model_layer_activations = jnp.squeeze(model_activations[1])
+    r2_score["weights"] = [sklearn.metrics.r2_score(weight_trajec, model_weight_trajec)]
 
-    r2_score["weights"] = [utils.compute_r2_score(weight_trajec, model_weight_trajec)]
-    # note: this won't calculate the true R2 score between neural activity, since
-    # after trial length the activities for both these would be the same (corresponding to x=0)
+    if len(params_trajec) == 1:
+        # if there is no hidden layer, then the layer activations are the same as the logits
+        layer_activations = jax.nn.sigmoid(layer_activations)
+        model_layer_activations = jax.nn.sigmoid(model_layer_activations)
+
+    logits_mask = np.where(logits_mask == 0, np.nan, logits_mask)
+    layer_activations = layer_activations[~np.isnan(logits_mask)]
+    model_layer_activations = model_layer_activations[~np.isnan(logits_mask)]
+
     r2_score["activity"] = [
-        utils.compute_r2_score(layer_activations, model_layer_activations)
+        sklearn.metrics.r2_score(layer_activations, model_layer_activations)
     ]
     return r2_score
 
@@ -293,23 +318,13 @@ def evaluate_percent_deviance(decisions, model_activations, null_model_activatio
     Returns:
         Percent deviance explained scalar
     """
-
-    trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions)), axis=1).astype(int)
-    logits_mask = np.ones_like(decisions)
-    for j, length in enumerate(trial_lengths):
-        logits_mask[j][length:] = 0
-    decisions = jnp.nan_to_num(decisions, copy=False, nan=0.0)
-
     ys = jax.nn.sigmoid(jnp.squeeze(model_activations[-1]))
-    ys = jnp.multiply(ys, logits_mask)
     null_ys = jax.nn.sigmoid(jnp.squeeze(null_model_activations[-1]))
-    null_ys = jnp.multiply(null_ys, logits_mask)
-    # print("ys:", ys)
-    # print("null ys:", null_ys)
-
-    model_deviance = utils.compute_neg_log_likelihoods(logits_mask, ys, decisions)
-    null_deviance = utils.compute_neg_log_likelihoods(logits_mask, null_ys, decisions)
-    print(f"model deviance: {model_deviance}")
-    print(f"null deviance: {null_deviance}")
+    mask = ~np.isnan(decisions)
+    decisions = decisions[mask]
+    ys = ys[mask]
+    null_ys = null_ys[mask]
+    model_deviance = utils.compute_neg_log_likelihoods(ys, decisions)
+    null_deviance = utils.compute_neg_log_likelihoods(null_ys, decisions)
     percent_deviance = 100 * (null_deviance - model_deviance) / null_deviance
     return percent_deviance.item()
