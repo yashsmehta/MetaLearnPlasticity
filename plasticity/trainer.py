@@ -117,16 +117,19 @@ def train(cfg):
         plasticity_func,
     )
 
-    print(f"r2 score: {r2_score}")
-    print(f"percent deviance: {percent_deviance}")
     if cfg.plasticity_model == "mlp":
         mlp_params = expdata.pop("mlp_params")
 
     df = pd.DataFrame.from_dict(expdata)
-    df["r2_weights"], df["r2_activity"] = mean(r2_score["weights"]), mean(
-        r2_score["activity"]
-    )
-    df["percent_deviance"] = mean(percent_deviance)
+    if cfg.num_eval_exps > 0:
+        print(f"r2 score: {r2_score}")
+        print(f"mean r2 score (weights, activity): {mean(r2_score["weights"]), mean(r2_score["activity"])}")
+        print(f"percent deviance: {percent_deviance}")
+        print(f"mean percent deviance: {mean(percent_deviance)}")
+        df["r2_weights"], df["r2_activity"] = mean(r2_score["weights"]), mean(
+            r2_score["activity"]
+        )
+        df["percent_deviance"] = mean(percent_deviance)
     run_time = round(time.time() - start, 3)
     print(f"run time: {run_time}s")
     df["run_time"] = run_time
