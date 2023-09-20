@@ -17,7 +17,7 @@ from plasticity.utils import create_nested_list
 
 def load_data(key, cfg):
     if cfg.use_experimental_data:
-        return load_adi_expdata(cfg)
+        return load_adi_expdata(key, cfg)
     
     else:
         generation_coeff, generation_func = synapse.init_plasticity(
@@ -226,20 +226,24 @@ def expected_reward_for_exp_data(R, moving_avg_window):
     return np.array(expected_rewards)
 
 
-def load_adi_expdata(cfg):
+def load_adi_expdata(key, cfg):
     print("Loading experimental data...")
-
-    element_dim = 2
 
     xs, neural_recordings, decisions, rewards, expected_rewards = {}, {}, {}, {}, {}
 
+    input_dim = cfg.layer_sizes[0]
     for exp_i, file in enumerate(os.listdir(cfg.data_dir)):
+        seed = (cfg.jobid + 1) * (exp_i + 1)
+        np.random.seed(seed)
+        key, _ = split(key)
         if exp_i >= cfg.num_exps:
             break
+        odor_mus, odor_sigmas = inputs.generate_input_parameters(cfg)
         exp_i = str(exp_i)
         print(exp_i, file)
         data = sio.loadmat(cfg.data_dir + file)
         X, Y, R = data["X"], data["Y"], data["R"]
+        odors = np.where(X == 1)[1]
         Y = np.squeeze(Y)
         R = np.squeeze(R)
         num_trials = np.sum(Y)
@@ -253,8 +257,9 @@ def load_adi_expdata(cfg):
         exp_decisions = [[] for _ in range(num_trials)]
         exp_xs = [[] for _ in range(num_trials)]
 
-        for index, decision, x in zip(indices, Y, X):
+        for index, decision, odor in zip(indices, Y, odors):
             exp_decisions[index].append(decision)
+            x = inputs.sample_inputs(key, odor_mus, odor_sigmas, odor)
             exp_xs[index].append(x)
 
         trial_lengths = [len(exp_decisions[i]) for i in range(num_trials)]
@@ -266,7 +271,7 @@ def load_adi_expdata(cfg):
                 d_tensor[i][j] = exp_decisions[i][j]
         decisions[exp_i] = d_tensor
 
-        xs_tensor = np.full((num_trials, max_trial_length, element_dim), 0)
+        xs_tensor = np.full((num_trials, max_trial_length, input_dim), 0.)
         for i in range(num_trials):
             for j in range(trial_lengths[i]):
                 xs_tensor[i][j] = exp_xs[i][j]
@@ -277,52 +282,6 @@ def load_adi_expdata(cfg):
         neural_recordings[str(exp_i)] = None
 
     return xs, neural_recordings, decisions, rewards, expected_rewards
-
-
-def load_single_adi_experiment(cfg):
-    exp_i = "0"
-    element_dim = 2
-
-    xs, decisions, rewards, expected_rewards = {}, {}, {}, {}
-    file = f"Fly{cfg.jobid}.mat"
-    data = sio.loadmat(cfg.data_dir + file)
-    X, Y, R = data["X"], data["Y"], data["R"]
-    Y = np.squeeze(Y)
-    R = np.squeeze(R)
-    num_trials = np.sum(Y)
-    assert num_trials == R.shape[0], "Y and R should have the same number of trials"
-
-    # remove last element, and append left to get indices.
-    indices = np.cumsum(Y)
-    indices = np.insert(indices, 0, 0)
-    indices = np.delete(indices, -1)
-
-    exp_decisions = [[] for _ in range(num_trials)]
-    exp_xs = [[] for _ in range(num_trials)]
-
-    for index, decision, x in zip(indices, Y, X):
-        exp_decisions[index].append(decision)
-        exp_xs[index].append(x)
-
-    trial_lengths = [len(exp_decisions[i]) for i in range(num_trials)]
-    max_trial_length = np.max(np.array(trial_lengths))
-
-    d_tensor = np.full((num_trials, max_trial_length), np.nan)
-    for i in range(num_trials):
-        for j in range(trial_lengths[i]):
-            d_tensor[i][j] = exp_decisions[i][j]
-    decisions[exp_i] = d_tensor
-
-    xs_tensor = np.full((num_trials, max_trial_length, element_dim), 0)
-    for i in range(num_trials):
-        for j in range(trial_lengths[i]):
-            xs_tensor[i][j] = exp_xs[i][j]
-    xs[exp_i] = xs_tensor
-
-    rewards[exp_i] = R
-    expected_rewards[exp_i] = expected_reward_for_exp_data(R, cfg.moving_avg_window)
-
-    return xs, decisions, rewards, expected_rewards
 
 
 def get_trial_lengths(decisions):
