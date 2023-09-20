@@ -3,11 +3,12 @@ import jax.numpy as jnp
 import numpy as np
 
 
-def generate_input_parameters(cfg):
+def generate_input_parameters(seed, cfg):
     """
     return the mus and sigmas tensors, with some mean, and variance
     """
     # for now, this is hardcoded to 2 odors
+    np.random.seed(seed)
     num_odors = 2
     input_dim = cfg.layer_sizes[0]
     firing_idx = np.random.choice(

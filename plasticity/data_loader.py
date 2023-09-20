@@ -49,8 +49,7 @@ def generate_experiments_data(
 
     for exp_i in range(cfg.num_exps):
         seed = (cfg.jobid + 1) * (exp_i + 1)
-        np.random.seed(seed)
-        odor_mus, odor_sigmas = inputs.generate_input_parameters(cfg)
+        odor_mus, odor_sigmas = inputs.generate_input_parameters(seed, cfg)
         exp_i = str(exp_i)
         key, subkey = split(key)
         params = model.initialize_params(key, cfg)
@@ -234,11 +233,10 @@ def load_adi_expdata(key, cfg):
     input_dim = cfg.layer_sizes[0]
     for exp_i, file in enumerate(os.listdir(cfg.data_dir)):
         seed = (cfg.jobid + 1) * (exp_i + 1)
-        np.random.seed(seed)
         key, _ = split(key)
         if exp_i >= cfg.num_exps:
             break
-        odor_mus, odor_sigmas = inputs.generate_input_parameters(cfg)
+        odor_mus, odor_sigmas = inputs.generate_input_parameters(seed, cfg)
         exp_i = str(exp_i)
         print(exp_i, file)
         data = sio.loadmat(cfg.data_dir + file)
