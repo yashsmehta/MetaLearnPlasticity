@@ -229,16 +229,16 @@ def load_adi_expdata(key, cfg):
     print("Loading experimental data...")
 
     xs, neural_recordings, decisions, rewards, expected_rewards = {}, {}, {}, {}, {}
+    max_exp_id = len(os.listdir(cfg.data_dir))
 
     input_dim = cfg.layer_sizes[0]
-    for exp_i, file in enumerate(os.listdir(cfg.data_dir)):
-        seed = (cfg.jobid + 1) * (exp_i + 1)
+    for exp_i in range(cfg.jobid, cfg.jobid + cfg.num_exps):
+        exp_i = exp_i % max_exp_id + 1
         key, _ = split(key)
-        if exp_i >= cfg.num_exps:
-            break
-        odor_mus, odor_sigmas = inputs.generate_input_parameters(seed, cfg)
+        file = f"Fly{exp_i}.mat"
+        odor_mus, odor_sigmas = inputs.generate_input_parameters(seed=exp_i, cfg=cfg)
         exp_i = str(exp_i)
-        print(exp_i, file)
+        print(f"loaded file {file}")
         data = sio.loadmat(cfg.data_dir + file)
         X, Y, R = data["X"], data["Y"], data["R"]
         odors = np.where(X == 1)[1]
