@@ -21,9 +21,6 @@ def train(cfg):
     cfg = utils.validate_config(cfg)
     np.set_printoptions(suppress=True, threshold=sys.maxsize)
     key = jax.random.PRNGKey(cfg.jobid)
-    generation_coeff, generation_func = synapse.init_plasticity(
-        key, cfg, mode="generation_model"
-    )
     key, subkey = split(key)
     plasticity_coeff, plasticity_func = synapse.init_plasticity(
         subkey, cfg, mode="plasticity_model"
@@ -39,26 +36,14 @@ def train(cfg):
     key, subkey = split(key)
 
     start = time.time()
-    if cfg.use_experimental_data:
-        (
-            resampled_xs,
-            decisions,
-            rewards,
-            expected_rewards,
-        ) = data_loader.load_single_adi_experiment(cfg)
-    else:
-        (
-            resampled_xs,
-            neural_recordings,
-            decisions,
-            rewards,
-            expected_rewards,
-        ) = data_loader.generate_experiments_data(
-            subkey,
-            cfg,
-            generation_coeff,
-            generation_func,
-        )
+    (
+        resampled_xs,
+        neural_recordings,
+        decisions,
+        rewards,
+        expected_rewards,
+    ) = data_loader.load_data(key, cfg)
+
     print(f"generated data in: {round(time.time() - start, 3)}!")
     loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=2)
     optimizer = optax.adam(learning_rate=1e-3)
@@ -108,6 +93,7 @@ def train(cfg):
                 cfg, expdata, plasticity_coeff, epoch, loss
             )
     key, _ = split(key)
+    exit()
     r2_score, percent_deviance = model.evaluate(
         key,
         cfg,

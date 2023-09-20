@@ -9,10 +9,21 @@ import os
 from functools import partial
 
 import plasticity.model as model
+import plasticity.inputs as inputs
+import plasticity.synapse as synapse
 from plasticity.utils import experiment_list_to_tensor
 from plasticity.utils import create_nested_list
-from plasticity import inputs
 
+
+def load_data(key, cfg):
+    if cfg.use_experimental_data:
+        return load_adi_expdata(cfg)
+    
+    else:
+        generation_coeff, generation_func = synapse.init_plasticity(
+            key, cfg, mode="generation_model"
+        )
+        return generate_experiments_data(key, cfg, generation_coeff, generation_func)
 
 def generate_experiments_data(
     key,
@@ -220,7 +231,7 @@ def load_adi_expdata(cfg):
 
     element_dim = 2
 
-    xs, decisions, rewards, expected_rewards = {}, {}, {}, {}
+    xs, neural_recordings, decisions, rewards, expected_rewards = {}, {}, {}, {}, {}
 
     for exp_i, file in enumerate(os.listdir(cfg.data_dir)):
         if exp_i >= cfg.num_exps:
@@ -263,8 +274,9 @@ def load_adi_expdata(cfg):
 
         rewards[exp_i] = R
         expected_rewards[exp_i] = expected_reward_for_exp_data(R, cfg.moving_avg_window)
+        neural_recordings[str(exp_i)] = None
 
-    return xs, decisions, rewards, expected_rewards
+    return xs, neural_recordings, decisions, rewards, expected_rewards
 
 
 def load_single_adi_experiment(cfg):
