@@ -239,10 +239,10 @@ def load_adi_expdata(key, cfg):
         file = f"Fly{exp_id}.mat"
         odor_mus, odor_sigmas = inputs.generate_input_parameters(seed=exp_id, cfg=cfg)
         exp_i = str(exp_i)
-        print(f"loaded file {file}")
         data = sio.loadmat(cfg.data_dir + file)
-        X, Y, R = data["X"], data["Y"], data["R"]
-        odors = np.where(X == 1)[1]
+        print(f"loaded file {file}")
+        odor_ids, Y, R = data["X"], data["Y"], data["R"]
+        odors = np.where(odor_ids == 1)[1]
         Y = np.squeeze(Y)
         R = np.squeeze(R)
         num_trials = np.sum(Y)

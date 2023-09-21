@@ -5,6 +5,7 @@ import numpy as np
 from scipy.special import kl_div
 from pathlib import Path
 import os
+import ast
 
 
 def generate_gaussian(key, shape, scale=0.1):
@@ -115,6 +116,9 @@ def validate_config(cfg):
     """
     asserts that the configuration is valid, and removes any useless keys
     """
+    if isinstance(cfg.layer_sizes, str):
+        cfg.layer_sizes = ast.literal_eval(cfg.layer_sizes)
+        print("passed layer sizes as string, converted to list")
     assert (
         len(cfg.reward_ratios) == cfg.num_blocks
     ), "length of reward ratios should be equal to number of blocks!"

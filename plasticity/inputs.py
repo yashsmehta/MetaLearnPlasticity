@@ -23,7 +23,7 @@ def generate_input_parameters(seed, cfg):
 
     diag_mask = np.ma.diag(np.ones(input_dim))
 
-    sigmas = cfg.input_noise * np.ones((num_odors, input_dim, input_dim))
+    sigmas = cfg.input_variance * np.ones((num_odors, input_dim, input_dim))
 
     for i in range(num_odors):
         sigmas[i] = np.multiply(sigmas[i], diag_mask)
