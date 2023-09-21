@@ -6,6 +6,7 @@ import plasticity.data_loader as data_loader
 import plasticity.utils as utils
 import plasticity.synapse as synapse
 import sklearn.metrics
+from statistics import mean
 
 
 def initialize_params(key, cfg, scale=0.01, last_layer_multiplier=5.0):
@@ -176,8 +177,6 @@ def update_params(
 def evaluate(
     key,
     cfg,
-    generation_coeff,
-    generation_func,
     plasticity_coeff,
     plasticity_func,
 ):
@@ -198,29 +197,14 @@ def evaluate(
         decisions,
         rewards,
         expected_rewards,
-    ) = data_loader.generate_experiments_data(
-        key,
-        cfg,
-        generation_coeff,
-        generation_func,
-    )
+    ) = data_loader.load_data(key, cfg)
 
-    for exp_i in range(cfg.num_eval_exps):
+    for exp_i in range(cfg.num_exps):
         exp_i = str(exp_i)
         key, _ = jax.random.split(key)
         params = initialize_params(key, cfg, scale=0.01)
         trial_lengths = data_loader.get_trial_lengths(decisions[exp_i])
         logits_mask = data_loader.get_logits_mask(decisions[exp_i])
-        # simulate model with "true" plasticity coefficients (generation_coeff)
-        params_trajec, activations = simulate(
-            params,
-            generation_coeff,
-            generation_func,
-            resampled_xs[exp_i],
-            rewards[exp_i],
-            expected_rewards[exp_i],
-            trial_lengths,
-        )
 
         # simulate model with learned plasticity coefficients (plasticity_coeff)
         model_params_trajec, model_activations = simulate(
@@ -246,25 +230,47 @@ def evaluate(
             expected_rewards[exp_i],
             trial_lengths,
         )
-
-        r2_score_exp = evaluate_r2_score(
-            logits_mask,
-            params_trajec,
-            activations,
-            model_params_trajec,
-            model_activations,
-        )
-        r2_score = {
-            dict_key: r2_score[dict_key] + r2_score_exp[dict_key]
-            for dict_key in r2_score.keys()
-        }
-
         percent_deviance.append(
             evaluate_percent_deviance(
                 decisions[exp_i], model_activations, null_model_activations
             )
         )
 
+        if not cfg.use_experimental_data:
+            # simulate model with "true" plasticity coefficients (generation_coeff)
+            generation_coeff, generation_func = synapse.init_plasticity(
+                key, cfg, mode="generation_model"
+            )
+            params_trajec, activations = simulate(
+                params,
+                generation_coeff,
+                generation_func,
+                resampled_xs[exp_i],
+                rewards[exp_i],
+                expected_rewards[exp_i],
+                trial_lengths,
+            )
+
+            r2_score_exp = evaluate_r2_score(
+                logits_mask,
+                params_trajec,
+                activations,
+                model_params_trajec,
+                model_activations,
+            )
+            r2_score = {
+                dict_key: r2_score[dict_key] + r2_score_exp[dict_key]
+                for dict_key in r2_score.keys()
+            }
+
+    print(f"r2 score: {r2_score}")
+    print(f"percent deviance: {percent_deviance}")
+    try:
+        percent_deviance = mean(percent_deviance)
+        r2_score["weights"] = mean(r2_score["weights"])
+        r2_score["activity"] = mean(r2_score["activity"])
+    except:
+        pass
     return r2_score, percent_deviance
 
 

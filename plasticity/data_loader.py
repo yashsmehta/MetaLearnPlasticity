@@ -232,11 +232,12 @@ def load_adi_expdata(key, cfg):
     max_exp_id = len(os.listdir(cfg.data_dir))
 
     input_dim = cfg.layer_sizes[0]
-    for exp_i in range(cfg.jobid, cfg.jobid + cfg.num_exps):
-        exp_i = exp_i % max_exp_id + 1
+    exp_i = 0
+    for exp_id in range(cfg.jobid, cfg.jobid + cfg.num_exps):
+        exp_id = exp_id % max_exp_id + 1
         key, _ = split(key)
-        file = f"Fly{exp_i}.mat"
-        odor_mus, odor_sigmas = inputs.generate_input_parameters(seed=exp_i, cfg=cfg)
+        file = f"Fly{exp_id}.mat"
+        odor_mus, odor_sigmas = inputs.generate_input_parameters(seed=exp_id, cfg=cfg)
         exp_i = str(exp_i)
         print(f"loaded file {file}")
         data = sio.loadmat(cfg.data_dir + file)
@@ -277,7 +278,8 @@ def load_adi_expdata(key, cfg):
 
         rewards[exp_i] = R
         expected_rewards[exp_i] = expected_reward_for_exp_data(R, cfg.moving_avg_window)
-        neural_recordings[str(exp_i)] = None
+        neural_recordings[exp_i] = None
+        exp_i = int(exp_i) + 1
 
     return xs, neural_recordings, decisions, rewards, expected_rewards
 
