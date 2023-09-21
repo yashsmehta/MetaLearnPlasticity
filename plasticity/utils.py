@@ -124,13 +124,15 @@ def validate_config(cfg):
     assert cfg.layer_sizes[-1] == 1, "output dim must be 1!"
     assert len(cfg.layer_sizes) == 2 or len(cfg.layer_sizes) == 3, "only 2, 3 layer networks supported!"
     assert cfg.neural_recording_sparsity >= 0. and cfg.neural_recording_sparsity <= 1., "neural recording sparsity must be between 0 and 1!"
-    if cfg.use_experimental_data:
-        assert "behavior" in cfg.fit_data and "neural" not in cfg.fit_data, "only behavior experimental data available!"
     if cfg.plasticity_model == "mlp":
         assert cfg.plasticity_coeff_init in ["random"], "only random plasticity coeff init for MLP supported!"
     assert "behavior" in cfg.fit_data or "neural" in cfg.fit_data, "fit data must contain either behavior or neural, or both!"
     if cfg.use_experimental_data:
         assert cfg.num_exps <= len(os.listdir(cfg.data_dir)), "Not enough experimental data"
+        assert cfg.num_blocks == 3, "all Adi's data gathering consists of 3 blocks!"
+        assert "behavior" in cfg.fit_data and "neural" not in cfg.fit_data, "only behavior experimental data available!"
+        del cfg["trials_per_block"]
+        del cfg["reward_ratios"]
 
     if cfg["plasticity_model"] == "mlp":
         del cfg["coeff_mask"]
