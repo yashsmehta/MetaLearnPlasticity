@@ -267,8 +267,11 @@ def evaluate(
     print(f"percent deviance: {percent_deviance}")
     try:
         percent_deviance = mean(percent_deviance)
+        print("mean percent deviance: ", percent_deviance)
         r2_score["weights"] = mean(r2_score["weights"])
+        print("mean r2 weights: ", r2_score["weights"])
         r2_score["activity"] = mean(r2_score["activity"])
+        print("mean r2 activity: ", r2_score["activity"])
     except:
         pass
     return r2_score, percent_deviance
