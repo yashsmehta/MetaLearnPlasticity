@@ -187,7 +187,13 @@ def generate_trial(
         sampled_output = float(bernoulli(subkey, prob_output))
 
         input_xs.append(resampled_x)
-        neural_recordings.append(activations[1])
+        # if it is a 2 layer model, then the neural recordings are activations[1] 
+        if len(activations) == 3:
+            neural_recordings.append(activations[1]) 
+        # if it is a 1 layer model, then the neural recordings are sigmoid(activations)
+        else:
+            neural_recordings.append(prob_output)
+
         decisions.append(sampled_output)
 
         if sampled_output == 1:

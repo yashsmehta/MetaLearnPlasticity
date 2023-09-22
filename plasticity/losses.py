@@ -21,8 +21,15 @@ def compute_mse(neural_recordings, layer_activations):
 
 
 def neural_mse_loss(
-    key, logits_mask, recording_sparsity, measurement_error, neural_recordings, layer_activations
+    key, logits_mask, recording_sparsity, measurement_error, neural_recordings, activations
 ):
+
+    # if it is a 2 layer model, then the neural recordings are activations[1] 
+    if len(activations) == 3:
+        layer_activations = activations[1]
+    # if it is a 1 layer model, then the neural recordings are sigmoid(activations)
+    else:
+        layer_activations = jax.nn.sigmoid(activations[1])
     # sparsify the neural recordings, and then compute the mse
     recording_sparsity = float(recording_sparsity)
     num_neurons = neural_recordings.shape[-1]
@@ -48,7 +55,7 @@ def neural_mse_loss(
     return neural_loss
 
 
-@partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
+# @partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
 def celoss(
     key,
     params,
@@ -93,7 +100,7 @@ def celoss(
             cfg.neural_recording_sparsity,
             cfg.measurement_error,
             neural_recordings,
-            activations[1],
+            activations,
         )
         loss += neural_loss
     # add behavior cross entropy loss
