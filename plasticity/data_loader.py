@@ -187,7 +187,7 @@ def generate_trial(
         sampled_output = float(bernoulli(subkey, prob_output))
 
         input_xs.append(resampled_x)
-        neural_recordings.append(activations[-2])
+        neural_recordings.append(activations[1])
         decisions.append(sampled_output)
 
         if sampled_output == 1:

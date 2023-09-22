@@ -93,7 +93,7 @@ def celoss(
             cfg.neural_recording_sparsity,
             cfg.measurement_error,
             neural_recordings,
-            activations[-2],
+            activations[1],
         )
         loss += neural_loss
     # add behavior cross entropy loss
