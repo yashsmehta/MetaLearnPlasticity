@@ -115,6 +115,7 @@ def train(cfg):
     for key, value in cfg.items():
         if isinstance(value, (float, int, str)):
             df[key] = value
+    df["layer_sizes"] = str(cfg.layer_sizes)
 
     # pd.set_option("display.max_columns", None)
     print(df.tail(5))
