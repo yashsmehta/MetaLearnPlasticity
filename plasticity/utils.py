@@ -6,6 +6,8 @@ from scipy.special import kl_div
 from pathlib import Path
 import os
 import ast
+import time
+import random
 
 
 def generate_gaussian(key, shape, scale=0.1):
@@ -103,6 +105,7 @@ def save_logs(cfg, df):
             logdata_path = logdata_path / "expdata" / cfg.exp_name
         else:
             logdata_path = logdata_path / "simdata" / cfg.exp_name
+        time.sleep(random.uniform(0,5))
 
         logdata_path.mkdir(parents=True, exist_ok=True)
         csv_file = logdata_path / f"exp_{cfg.jobid}.csv"
