@@ -189,7 +189,6 @@ def evaluate(
 
     r2_score = {"weights": [], "activity": []}
     percent_deviance = []
-    cfg.num_exps = cfg.num_eval_exps
 
     (
         resampled_xs,
@@ -197,12 +196,11 @@ def evaluate(
         decisions,
         rewards,
         expected_rewards,
-    ) = data_loader.load_data(key, cfg)
+    ) = data_loader.load_data(key, cfg, mode="eval")
 
-    for exp_i in range(cfg.num_exps):
-        exp_i = str(exp_i)
+    for exp_i in decisions:
         key, _ = jax.random.split(key)
-        params = initialize_params(key, cfg, scale=0.01)
+        params = initialize_params(key, cfg)
         trial_lengths = data_loader.get_trial_lengths(decisions[exp_i])
         logits_mask = data_loader.get_logits_mask(decisions[exp_i])
 

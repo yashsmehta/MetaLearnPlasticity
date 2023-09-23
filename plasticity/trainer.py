@@ -49,20 +49,19 @@ def train(cfg):
     opt_state = optimizer.init(plasticity_coeff)
     expdata = {}
     for epoch in range(cfg.num_epochs):
-        for exp_i in range(cfg.num_exps):
-            noise_key = jax.random.PRNGKey((cfg.jobid + 1) * (exp_i + 1))
-            exp_i = str(exp_i)
+        for exp_i in decisions:
+            noise_key = jax.random.PRNGKey(cfg.jobid)
 
             # loss = losses.celoss(
             #     noise_key,
             #     params,
             #     plasticity_coeff,
             #     plasticity_func,
-            #     resampled_xs[str(exp_i)],
-            #     rewards[str(exp_i)],
-            #     expected_rewards[str(exp_i)],
-            #     neural_recordings[str(exp_i)],
-            #     decisions[str(exp_i)],
+            #     resampled_xs[exp_i],
+            #     rewards[exp_i],
+            #     expected_rewards[exp_i],
+            #     neural_recordings[exp_i],
+            #     decisions[exp_i],
             #     cfg,
             # )
             # print(f"loss: {loss}")
@@ -100,7 +99,7 @@ def train(cfg):
     print(f"train time: {train_time}s")
     df["train_time"] = train_time
 
-    if cfg.num_eval_exps > 0:
+    if cfg.num_eval > 0:
         print("evaluating model...")
         r2_score, percent_deviance = model.evaluate(
             key,

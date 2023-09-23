@@ -135,7 +135,8 @@ def validate_config(cfg):
         assert cfg.plasticity_coeff_init in ["random"], "only random plasticity coeff init for MLP supported!"
     assert "behavior" in cfg.fit_data or "neural" in cfg.fit_data, "fit data must contain either behavior or neural, or both!"
     if cfg.use_experimental_data:
-        assert cfg.num_exps <= len(os.listdir(cfg.data_dir)), "Not enough experimental data"
+        num_flies = len(os.listdir(cfg.data_dir))
+        assert cfg.flyid > 0 and cfg.flyid <= num_flies, f"Fly experimental data only for flyids 1-{num_flies}! "
         assert cfg.num_blocks == 3, "all Adi's data gathering consists of 3 blocks!"
         assert "behavior" in cfg.fit_data and "neural" not in cfg.fit_data, "only behavior experimental data available!"
         del cfg["trials_per_block"]

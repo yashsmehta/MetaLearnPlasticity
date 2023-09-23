@@ -15,21 +15,23 @@ from plasticity.utils import experiment_list_to_tensor
 from plasticity.utils import create_nested_list
 
 
-def load_data(key, cfg):
+def load_data(key, cfg, mode="train"):
+    assert mode in ["train", "eval"]
     if cfg.use_experimental_data:
-        return load_adi_expdata(key, cfg)
+        return load_adi_expdata(key, cfg, mode)
     
     else:
         generation_coeff, generation_func = synapse.init_plasticity(
             key, cfg, mode="generation_model"
         )
-        return generate_experiments_data(key, cfg, generation_coeff, generation_func)
+        return generate_experiments_data(key, cfg, generation_coeff, generation_func, mode)
 
 def generate_experiments_data(
     key,
     cfg,
     plasticity_coeff,
     plasticity_func,
+    mode
 ):
     """Simulate all fly experiments with given plasticity coefficients
     Returns:
@@ -37,6 +39,9 @@ def generate_experiments_data(
         tensors as values
     """
 
+    if mode == "train":
+        num_experiments = cfg.num_train
+    else: num_experiments = cfg.num_eval
     xs, odors, neural_recordings, decisions, rewards, expected_rewards = (
         {},
         {},
@@ -47,7 +52,7 @@ def generate_experiments_data(
     )
     print("generating experiments data...")
 
-    for exp_i in range(cfg.num_exps):
+    for exp_i in range(num_experiments):
         seed = (cfg.jobid + 1) * (exp_i + 1)
         odor_mus, odor_sigmas = inputs.generate_input_parameters(seed, cfg)
         exp_i = str(exp_i)
@@ -231,22 +236,23 @@ def expected_reward_for_exp_data(R, moving_avg_window):
     return np.array(expected_rewards)
 
 
-def load_adi_expdata(key, cfg):
-    print("Loading experimental data...")
+def load_adi_expdata(key, cfg, mode):
+    print(f"Loading {mode} experimental data...")
 
     xs, neural_recordings, decisions, rewards, expected_rewards = {}, {}, {}, {}, {}
     max_exp_id = len(os.listdir(cfg.data_dir))
 
     input_dim = cfg.layer_sizes[0]
-    exp_i = 0
-    for exp_id in range(cfg.jobid, cfg.jobid + cfg.num_exps):
-        exp_id = exp_id % max_exp_id + 1
+    if mode == "train":
+        num_sampling = cfg.num_train
+    else: num_sampling = cfg.num_eval
+    for sample_i in range(num_sampling):
         key, _ = split(key)
-        file = f"Fly{exp_id}.mat"
-        odor_mus, odor_sigmas = inputs.generate_input_parameters(seed=exp_id, cfg=cfg)
-        exp_i = str(exp_i)
+        file = f"Fly{cfg.flyid}.mat"
+        odor_mus, odor_sigmas = inputs.generate_input_parameters(seed=sample_i, cfg=cfg)
+        sample_i = str(sample_i)
         data = sio.loadmat(cfg.data_dir + file)
-        print(f"loaded file {file}")
+        print(f"File {file}, generating sample {sample_i}")
         odor_ids, Y, R = data["X"], data["Y"], data["R"]
         odors = np.where(odor_ids == 1)[1]
         Y = np.squeeze(Y)
@@ -274,18 +280,17 @@ def load_adi_expdata(key, cfg):
         for i in range(num_trials):
             for j in range(trial_lengths[i]):
                 d_tensor[i][j] = exp_decisions[i][j]
-        decisions[exp_i] = d_tensor
+        decisions[sample_i] = d_tensor
 
         xs_tensor = np.full((num_trials, max_trial_length, input_dim), 0.)
         for i in range(num_trials):
             for j in range(trial_lengths[i]):
                 xs_tensor[i][j] = exp_xs[i][j]
-        xs[exp_i] = xs_tensor
+        xs[sample_i] = xs_tensor
 
-        rewards[exp_i] = R
-        expected_rewards[exp_i] = expected_reward_for_exp_data(R, cfg.moving_avg_window)
-        neural_recordings[exp_i] = None
-        exp_i = int(exp_i) + 1
+        rewards[sample_i] = R
+        expected_rewards[sample_i] = expected_reward_for_exp_data(R, cfg.moving_avg_window)
+        neural_recordings[sample_i] = None
 
     return xs, neural_recordings, decisions, rewards, expected_rewards
 
