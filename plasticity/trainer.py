@@ -48,7 +48,7 @@ def train(cfg):
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(plasticity_coeff)
     expdata = {}
-    for epoch in range(cfg.num_epochs):
+    for epoch in range(cfg.num_epochs + 1):
         for exp_i in decisions:
             noise_key = jax.random.PRNGKey(cfg.jobid)
 
