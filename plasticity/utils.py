@@ -114,14 +114,14 @@ def save_logs(cfg, df):
             logdata_path = logdata_path / "simdata" / cfg.exp_name
 
         logdata_path.mkdir(parents=True, exist_ok=True)
-        csv_file = logdata_path / f"exp_{cfg.jobid}.csv"
+        csv_file = logdata_path / f"exp_{cfg.flyid}.csv"
         tries = 0
+        write_header = not csv_file.exists()
         while is_file_open(csv_file):
             tries += 1
             print(f"File is currently being written to by another program. Try: {tries}")
             time.sleep(random.uniform(1,5))
 
-        write_header = not csv_file.exists()
         df.to_csv(csv_file, mode="a", header=write_header, index=False)
         print("saved logs!")
 
