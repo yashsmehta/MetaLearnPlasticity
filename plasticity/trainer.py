@@ -1,11 +1,9 @@
-import plasticity.inputs as inputs
 import plasticity.synapse as synapse
 import plasticity.data_loader as data_loader
 import plasticity.losses as losses
 import plasticity.model as model
 import plasticity.utils as utils
 import jax
-import jax.numpy as jnp
 from jax.random import split
 import optax
 import numpy as np
@@ -19,7 +17,7 @@ def train(cfg):
     jax.config.update("jax_platform_name", "cpu")
     cfg = utils.validate_config(cfg)
     np.set_printoptions(suppress=True, threshold=sys.maxsize)
-    key = jax.random.PRNGKey(cfg.jobid)
+    key = jax.random.PRNGKey(cfg.flyid)
     key, subkey = split(key)
     plasticity_coeff, plasticity_func = synapse.init_plasticity(
         subkey, cfg, mode="plasticity_model"
@@ -50,7 +48,7 @@ def train(cfg):
     expdata = {}
     for epoch in range(cfg.num_epochs + 1):
         for exp_i in decisions:
-            noise_key = jax.random.PRNGKey(cfg.jobid)
+            noise_key = jax.random.PRNGKey(cfg.flyid)
 
             # loss = losses.celoss(
             #     noise_key,
@@ -120,5 +118,5 @@ def train(cfg):
     print(df.tail(5))
     logdata_path = utils.save_logs(cfg, df)
     if cfg.plasticity_model == "mlp" and cfg.log_expdata:
-        with open(logdata_path / f"mlp_params_{cfg.jobid}.pkl", "wb") as f:
+        with open(logdata_path / f"mlp_params_{cfg.flyid}.pkl", "wb") as f:
             pickle.dump(mlp_params, f)

@@ -55,7 +55,7 @@ def neural_mse_loss(
     return neural_loss
 
 
-# @partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
+@partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
 def celoss(
     key,
     params,

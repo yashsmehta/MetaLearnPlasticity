@@ -53,7 +53,7 @@ def generate_experiments_data(
     print("generating experiments data...")
 
     for exp_i in range(num_experiments):
-        seed = (cfg.jobid + 1) * (exp_i + 1)
+        seed = (cfg.flyid + 1) * (exp_i + 1)
         odor_mus, odor_sigmas = inputs.generate_input_parameters(seed, cfg)
         exp_i = str(exp_i)
         key, subkey = split(key)
