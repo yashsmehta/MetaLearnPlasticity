@@ -2,6 +2,7 @@ from plasticity.utils import generate_gaussian
 import jax
 import jax.numpy as jnp
 import numpy as np
+import re
 
 
 def volterra_synapse_tensor(x, y, z):
@@ -54,41 +55,32 @@ def init_random(key):
     assert key is not None, "For random initialization, a random key has to be given"
     return generate_gaussian(key, (3, 3, 3), scale=1e-5)
 
+def split_init_string(s):
+    return [match.replace(" ", "") for match in re.findall(r'(-?\s*[A-Za-z0-9.]+[A-Za-z][0-9]*)', s)]
 
-def init_reward(parameters):
-    parameters[1][1][0] = 1
-    return parameters
+def extract_numbers(s):
+    x = int(re.search('X(\d+)', s).group(1))
+    y_or_r = int(re.search('[YR](\d+)', s).group(1))
+    w = int(re.search('W(\d+)', s).group(1))
+    multiplier_match = re.search('^(-?\d+\.?\d*)', s)
+    multiplier = float(multiplier_match.group(1)) if multiplier_match else 1.
+    assert x<3 and y_or_r<3 and w<3, "X, Y/R and W must be between 0 and 2"
+    return x, y_or_r, w, multiplier
 
+def init_generation_volterra(init):
+    parameters = np.zeros((3, 3, 3))
+    inits = split_init_string(init)
+    for init in inits:
+        x, y_or_r, w, multiplier = extract_numbers(init)
+        parameters[x][y_or_r][w] = multiplier
 
-def init_reward_with_decay(parameters):
-    parameters[1][1][0] = 0.2
-    parameters[0][0][1] = -0.03
-    return parameters
+    return jnp.array(parameters), volterra_plasticity_function
 
-
-def init_custom(parameters):
-    parameters[1][0][0] = 0.5
-    parameters[0][0][1] = -0.25
-    return parameters
-
-
-def init_oja(parameters):
-    parameters[1][1][0] = 1
-    parameters[0][2][1] = -1
-    return parameters
-
-
-def init_volterra(key=None, init=None):
+def init_plasticity_volterra(key, init):
     init_functions = {
         "zeros": init_zeros,
         "random": lambda: init_random(key),
-        "reward": lambda: init_reward(np.zeros((3, 3, 3))),
-        "reward-with-decay": lambda: init_reward_with_decay(np.zeros((3, 3, 3))),
-        "custom": lambda: init_custom(np.zeros((3, 3, 3))),
     }
-
-    if init not in init_functions:
-        raise RuntimeError(f"init method {init} not implemented")
 
     parameters = init_functions[init]()
     return jnp.array(parameters), volterra_plasticity_function
@@ -109,12 +101,12 @@ def init_plasticity_mlp(key, layer_sizes, scale=0.01):
 def init_plasticity(key, cfg, mode):
     if "generation" in mode:
         if cfg.generation_model == "volterra":
-            return init_volterra(key, init=cfg.generation_coeff_init)
+            return init_generation_volterra(init=cfg.generation_coeff_init)
         elif cfg.generation_model == "mlp":
             return init_plasticity_mlp(key, cfg.meta_mlp_layer_sizes)
     elif "plasticity" in mode:
         if cfg.plasticity_model == "volterra":
-            return init_volterra(key, init=cfg.plasticity_coeff_init)
+            return init_plasticity_volterra(key, init=cfg.plasticity_coeff_init)
         elif cfg.plasticity_model == "mlp":
             return init_plasticity_mlp(key, cfg.meta_mlp_layer_sizes)
 

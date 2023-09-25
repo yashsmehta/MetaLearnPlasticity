@@ -216,8 +216,8 @@ def evaluate(
         )
 
         # simulate model with zeros plasticity coefficients for null model
-        plasticity_coeff_zeros, zero_plasticity_func = synapse.init_volterra(
-            init="zeros"
+        plasticity_coeff_zeros, zero_plasticity_func = synapse.init_plasticity_volterra(
+            None, init="zeros"
         )
         _, null_model_activations = simulate(
             params,
