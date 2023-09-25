@@ -89,10 +89,6 @@ def print_and_log_training_info(cfg, expdata, plasticity_coeff, epoch, loss):
         expdata.setdefault("mlp_params", []).append(plasticity_coeff)
 
     expdata.setdefault("epoch", []).append(epoch)
-    # check if loss is nan
-    if np.isnan(loss):
-        print("loss is nan!, exiting...")
-        exit()
     expdata.setdefault("loss", []).append(loss)
 
     return expdata
