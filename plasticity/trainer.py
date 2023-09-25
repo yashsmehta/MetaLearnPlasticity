@@ -14,7 +14,6 @@ import sys
 
 
 def train(cfg):
-    jax.config.update("jax_platform_name", "cpu")
     cfg = utils.validate_config(cfg)
     np.set_printoptions(suppress=True, threshold=sys.maxsize)
     key = jax.random.PRNGKey(cfg.flyid)
