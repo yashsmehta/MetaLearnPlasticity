@@ -45,10 +45,10 @@ def train(cfg):
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(plasticity_coeff)
     expdata = {}
+    noise_key = jax.random.PRNGKey(10*cfg.flyid)
     for epoch in range(cfg.num_epochs + 1):
         for exp_i in decisions:
-            noise_key = jax.random.PRNGKey(cfg.flyid)
-
+            noise_key, _ = split(noise_key)
             # loss = losses.celoss(
             #     noise_key,
             #     params,

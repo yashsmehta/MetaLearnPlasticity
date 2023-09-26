@@ -21,15 +21,11 @@ def compute_mse(neural_recordings, layer_activations):
 
 
 def neural_mse_loss(
-    key, logits_mask, recording_sparsity, measurement_error, neural_recordings, activations
+    key, logits_mask, recording_sparsity, measurement_noise_scale, neural_recordings, activations
 ):
 
-    # if it is a 2 layer model, then the neural recordings are activations[1] 
-    if len(activations) == 3:
-        layer_activations = activations[1]
-    # if it is a 1 layer model, then the neural recordings are sigmoid(activations)
-    else:
-        layer_activations = jax.nn.sigmoid(activations[1])
+    # reminder that activations are the outputs of the network before the sigmoid
+    layer_activations = jax.nn.sigmoid(activations[-1])
     # sparsify the neural recordings, and then compute the mse
     recording_sparsity = float(recording_sparsity)
     num_neurons = neural_recordings.shape[-1]
@@ -41,21 +37,21 @@ def neural_mse_loss(
     recordings_mask = np.zeros(num_neurons)
     recordings_mask[recordings_id] = 1.0
     # add gaussian noise to the neural recordings
-    upper = jnp.abs(neural_recordings)
-    lower = -1. * upper
-    measurement_noise = measurement_error * jax.random.truncated_normal(key, lower, upper)
-    neural_recordings = neural_recordings + measurement_noise
 
-    neural_recordings = jnp.einsum("ijk, k -> ijk", neural_recordings, recordings_mask)
-    layer_activations = jnp.einsum("ijk, k -> ijk", layer_activations, recordings_mask)
+    measurement_error = measurement_noise_scale * jax.random.normal(key, neural_recordings.shape)
+    assert measurement_error.shape == neural_recordings.shape
+    neural_recordings = neural_recordings + measurement_error
+
+    # neural_recordings = jnp.einsum("ijk, k -> ijk", neural_recordings, recordings_mask)
+    # layer_activations = jnp.einsum("ijk, k -> ijk", layer_activations, recordings_mask)
     # layer activations need to be masked as well for trials that are shorter than the max trial length,
-    # since zeros are fed as inputs, after sigmpoid, the activations will be 0.5
+    # since zeros are fed as inputs, after sigmoid, the activations will be 0.5
     layer_activations = jnp.einsum("ijk, ij -> ijk", layer_activations, logits_mask)
     neural_loss = compute_mse(neural_recordings, layer_activations)
     return neural_loss
 
 
-@partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
+# @partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
 def celoss(
     key,
     params,
@@ -98,7 +94,7 @@ def celoss(
             key,
             logits_mask,
             cfg.neural_recording_sparsity,
-            cfg.measurement_error,
+            cfg.measurement_noise_scale,
             neural_recordings,
             activations,
         )
