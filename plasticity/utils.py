@@ -159,5 +159,5 @@ def validate_config(cfg):
         assert cfg.plasticity_coeff_init in ["random", "zeros"], "only random or zeros plasticity coeff init for volterra supported!"
     if "neural" not in cfg["fit_data"]:
         del cfg["neural_recording_sparsity"]
-        del cfg["measurement_error"]
+        del cfg["measurement_noise_scale"]
     return cfg
