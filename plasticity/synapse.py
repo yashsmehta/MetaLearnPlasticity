@@ -6,6 +6,11 @@ import re
 
 
 def volterra_synapse_tensor(x, y, z):
+    """
+    Functionality: Computes the Volterra synapse tensor for given inputs.
+    Inputs: x, y, z (floats): Inputs to the Volterra synapse tensor.
+    Returns: A 3x3x3 tensor representing the Volterra synapse tensor.
+    """
     synapse_tensor = jnp.outer(
         jnp.outer(
             jnp.array([x**0, x**1, x**2]),
@@ -18,18 +23,23 @@ def volterra_synapse_tensor(x, y, z):
 
 
 def volterra_plasticity_function(x, y, z, volterra_coefficients):
+    """
+    Functionality: Computes the Volterra plasticity function for given inputs and coefficients.
+    Inputs: x, y, z (floats): Inputs to the Volterra plasticity function.
+            volterra_coefficients (array): Coefficients for the Volterra plasticity function.
+    Returns: The result of the Volterra plasticity function.
+    """
     synapse_tensor = volterra_synapse_tensor(x, y, z)
     dw = jnp.sum(jnp.multiply(volterra_coefficients, synapse_tensor))
     return dw
 
 
 def mlp_forward_pass(mlp_params, inputs):
-    """Forward pass for the MLP
-    Args:
-        mlp_params (list): list of tuples (weights, biases) for each layer
-        inputs (array): input data
-    Returns:
-        array: output of the network
+    """
+    Functionality: Performs a forward pass through a multi-layer perceptron (MLP).
+    Inputs: mlp_params (list): List of tuples (weights, biases) for each layer.
+            inputs (array): Input data.
+    Returns: The logits output of the MLP.
     """
     activation = inputs
     for w, b in mlp_params[:-1]:  # for all but the last layer
@@ -41,7 +51,12 @@ def mlp_forward_pass(mlp_params, inputs):
 
 
 def mlp_plasticity_function(x, y, z, mlp_params):
-    # dw is foward pass of mlp
+    """
+    Functionality: Computes the MLP plasticity function for given inputs and MLP parameters.
+    Inputs: x, y, z (floats): Inputs to the MLP plasticity function.
+            mlp_params (list): MLP parameters.
+    Returns: The result of the MLP plasticity function.
+    """
     inputs = jnp.array([x, y, z])
     dw = mlp_forward_pass(mlp_params, inputs)
     return dw
@@ -56,9 +71,20 @@ def init_random(key):
     return generate_gaussian(key, (3, 3, 3), scale=1e-5)
 
 def split_init_string(s):
+    """
+    Functionality: Splits an initialization string into a list of matches.
+    Inputs: s (str): Initialization string.
+    Returns: A list of matches.
+    """
     return [match.replace(" ", "") for match in re.findall(r'(-?\s*[A-Za-z0-9.]+[A-Za-z][0-9]*)', s)]
 
 def extract_numbers(s):
+    """
+    Functionality: Extracts numbers from string initialization: X1R0W1
+    for the plasticity coefficients
+    Inputs: s (str): String to extract numbers from.
+    Returns: A tuple of extracted numbers.
+    """
     x = int(re.search('X(\d+)', s).group(1))
     y_or_r = int(re.search('[YR](\d+)', s).group(1))
     w = int(re.search('W(\d+)', s).group(1))
@@ -68,6 +94,11 @@ def extract_numbers(s):
     return x, y_or_r, w, multiplier
 
 def init_generation_volterra(init):
+    """
+    Functionality: Initializes the parameters for the Volterra generation model.
+    Inputs: init (str): Initialization string.
+    Returns: A tuple containing the initialized parameters and the Volterra plasticity function.
+    """
     parameters = np.zeros((3, 3, 3))
     inits = split_init_string(init)
     for init in inits:
@@ -99,6 +130,13 @@ def init_plasticity_mlp(key, layer_sizes, scale=0.01):
 
 
 def init_plasticity(key, cfg, mode):
+    """
+    Functionality: Initializes the parameters for a given plasticity model.
+    Inputs: key (int): Seed for the random number generator.
+            cfg (object): Configuration object containing the model settings.
+            mode (str): Mode of operation ("generation" or "plasticity").
+    Returns: A tuple containing the initialized parameters and the corresponding plasticity function.
+    """
     if "generation" in mode:
         if cfg.generation_model == "volterra":
             return init_generation_volterra(init=cfg.generation_coeff_init)

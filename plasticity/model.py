@@ -11,10 +11,13 @@ from statistics import mean
 
 def initialize_params(key, cfg, scale=0.01, last_layer_multiplier=5.0):
     """
-    Initialize parameters for the network;
-    There is no plasticity in the
-    Returns:
-        list of tuples of weights and biases for each layer
+    Functionality: Initialize parameters for the network.
+    Inputs: 
+        key (int): Seed for the random number generator.
+        cfg (object): Configuration object containing the model settings.
+        scale (float, optional): Scale for the Gaussian distribution used to initialize the parameters. Default is 0.01.
+        last_layer_multiplier (float, optional): Multiplier for the last layer. Default is 5.0.
+    Returns: List of tuples of weights and biases for each layer.
     """
     layer_sizes = cfg.layer_sizes
 
@@ -42,9 +45,12 @@ def initialize_params(key, cfg, scale=0.01, last_layer_multiplier=5.0):
 
 
 def network_forward(params, inputs):
-    """Forward pass for the network
-    Returns:
-        activations for all layers, and logits
+    """
+    Functionality: Performs a forward pass for the network.
+    Inputs: 
+        params (list): List of tuples (weights, biases) for each layer.
+        inputs (array): Input data.
+    Returns: Activations for all layers, and logits.
     """
     print("compiling model.network_forward()...")
     activations = [inputs]
@@ -71,7 +77,14 @@ def simulate(
 ):
     """Simulate an experiment with given plasticity coefficients,
        vmap over timesteps within a trial, and scan over all trials
-
+    Inputs: 
+        initial_params (list): Initial parameters for the network.
+        plasticity_coeffs (array): Array of plasticity coefficients.
+        plasticity_func (function): Plasticity function.
+        xs (array): Array of inputs.
+        rewards (array): Array of rewards.
+        expected_rewards (array): Array of expected rewards.
+        trial_lengths (array): Array of trial lengths.
     Returns:
         a tensor of activations for the experiment, and the params_trajec,
         i.e. the params at each trial.
@@ -134,9 +147,16 @@ def network_step(
 def update_params(
     params, activations, plasticity_coeffs, plasticity_func, reward, expected_reward
 ):
-    """assuming plasticity happens in the first layer only.
-    [dw, db] = plasticity_func(activation, reward, w, plasticity_coeffs)
-    returns updated params
+    """
+    Functionality: Updates the parameters of the network, assuming plasticity happens in the first layer only.
+    Inputs: 
+        params (list): List of tuples (weights, biases) for each layer.
+        activations (array): Array of activations.
+        plasticity_coeffs (array): Array of plasticity coefficients.
+        plasticity_func (function): Plasticity function.
+        reward (float): Reward for the trial.
+        expected_reward (float): Expected reward for the trial.
+    Returns: Updated parameters.
     """
     print("compiling model.update_params()...")
     input_dim = params[0][0].shape[0]
@@ -180,11 +200,14 @@ def evaluate(
     plasticity_coeff,
     plasticity_func,
 ):
-    """Evaluate logits, weight trajectory for generation_coeff and plasticity_coeff
-       with new initial params, for a single new experiment
-    Returns:
-        R2 score (dict), [weights, activity]; activity is of output of plastic layer
-        Percent deviance explained (scalar)
+    """
+    Functionality: Evaluates logits, weight trajectory for generation_coeff and plasticity_coeff with new initial params, for a single new experiment.
+    Inputs: 
+        key (int): Seed for the random number generator.
+        cfg (object): Configuration object containing the model settings.
+        plasticity_coeff (array): Array of plasticity coefficients.
+        plasticity_func (function): Plasticity function.
+    Returns: R2 score (dict), [weights, activity]; activity is of output of plastic layer. Percent deviance explained (scalar).
     """
 
     r2_score = {"weights": [], "activity": []}
@@ -279,9 +302,14 @@ def evaluate_r2_score(
     logits_mask, params_trajec, activations, model_params_trajec, model_activations
 ):
     """
-    should return a dict of R2 scores for weights and activity in
-    the format of {"weights": [R2 score], "activity": [R2 score]},
-    i.e. lists of length 1.
+    Functionality: Evaluates the R2 score for weights and activity.
+    Inputs: 
+        logits_mask (array): Mask for the logits.
+        params_trajec (array): Array of parameters trajectory.
+        activations (array): Array of activations.
+        model_params_trajec (array): Array of model parameters trajectory.
+        model_activations (array): Array of model activations.
+    Returns: A dict of R2 scores for weights and activity in the format of {"weights": [R2 score], "activity": [R2 score]}, i.e. lists of length 1.
     """
     r2_score = {}
     num_trials = logits_mask.shape[0]

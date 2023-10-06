@@ -9,13 +9,25 @@ import jax.numpy as jnp
 
 
 def behavior_ce_loss(decisions, logits):
-    # returns the mean of the element-wise cross entropy
+    """
+    Functionality: Computes the mean of the element-wise cross entropy between decisions and logits.
+    Inputs: 
+        decisions (array): Array of decisions.
+        logits (array): Array of logits.
+    Returns: Mean of the element-wise cross entropy.
+    """
     losses = optax.sigmoid_binary_cross_entropy(logits, decisions)
     return jnp.mean(losses)
 
 
 def compute_mse(neural_recordings, layer_activations):
-    # returns the mean of the element-wise mse
+    """
+    Functionality: Computes the mean of the element-wise mean squared error between neural recordings and layer activations.
+    Inputs: 
+        neural_recordings (array): Array of neural recordings.
+        layer_activations (array): Array of layer activations.
+    Returns: Mean of the element-wise mean squared error.
+    """
     losses = optax.squared_error(neural_recordings, layer_activations)
     return jnp.mean(losses)
 
@@ -23,8 +35,18 @@ def compute_mse(neural_recordings, layer_activations):
 def neural_mse_loss(
     key, logits_mask, recording_sparsity, measurement_noise_scale, neural_recordings, activations
 ):
-
-    # reminder that activations are the outputs of the network before the sigmoid
+    """
+    Functionality: Computes the mean squared error loss for neural activity.
+    Inputs: 
+        key (int): Seed for the random number generator.
+        logits_mask (array): Mask for the logits.
+        recording_sparsity (float): Sparsity of the neural recordings.
+        measurement_noise_scale (float): Scale of the measurement noise.
+        neural_recordings (array): Array of neural recordings.
+        activations (array): Array of activations.
+    Returns: Mean squared error loss for neural activity.
+    """
+    # note: activations are the network logits
     layer_activations = jax.nn.sigmoid(activations[-1])
     # sparsify the neural recordings, and then compute the mse
     recording_sparsity = float(recording_sparsity)
@@ -51,8 +73,8 @@ def neural_mse_loss(
     return neural_loss
 
 
-# @partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
-def celoss(
+@partial(jax.jit, static_argnames=["plasticity_func", "cfg"])
+def loss(
     key,
     params,
     plasticity_coeff,
@@ -64,6 +86,21 @@ def celoss(
     decisions,
     cfg,
 ):
+    """
+    Functionality: Computes the total loss for the model.
+    Inputs: 
+        key (int): Seed for the random number generator.
+        params (array): Array of parameters.
+        plasticity_coeff (array): Array of plasticity coefficients.
+        plasticity_func (function): Plasticity function.
+        xs (array): Array of inputs.
+        rewards (array): Array of rewards.
+        expected_rewards (array): Array of expected rewards.
+        neural_recordings (array): Array of neural recordings.
+        decisions (array): Array of decisions.
+        cfg (object): Configuration object containing the model settings.
+    Returns: Loss for the cross entropy model.
+    """
     loss = 0.0
     if cfg.plasticity_model == "volterra":
         coeff_mask = jnp.array(cfg.coeff_mask)

@@ -16,6 +16,14 @@ from plasticity.utils import create_nested_list
 
 
 def load_data(key, cfg, mode="train"):
+    """
+    Functionality: Load data for training or evaluation.
+    Inputs: 
+        key (int): Seed for the random number generator.
+        cfg (object): Configuration object containing the model settings.
+        mode (str, optional): Mode of operation ("train" or "eval"). Default is "train".
+    Returns: Depending on the configuration, either experimental data or generated experiments data.
+    """
     assert mode in ["train", "eval"]
     if cfg.use_experimental_data:
         return load_adi_expdata(key, cfg, mode)
@@ -33,12 +41,16 @@ def generate_experiments_data(
     plasticity_func,
     mode
 ):
-    """Simulate all fly experiments with given plasticity coefficients
-    Returns:
-        5 dictionaries corresponding with experiment number (int) as key, with
-        tensors as values
     """
-
+    Functionality: Simulate all fly experiments with given plasticity coefficients.
+    Inputs: 
+        key (int): Seed for the random number generator.
+        cfg (object): Configuration object containing the model settings.
+        plasticity_coeff (array): Array of plasticity coefficients.
+        plasticity_func (function): Plasticity function.
+        mode (str): Mode of operation ("train" or "eval").
+    Returns: 5 dictionaries corresponding with experiment number (int) as key, with tensors as values.
+    """
     if mode == "train":
         num_experiments = cfg.num_train
     else: num_experiments = cfg.num_eval
@@ -110,10 +122,17 @@ def generate_experiment(
     odor_mus,
     odor_sigmas,
 ):
-    """Simulate a single fly experiment with given plasticity coefficients
-    Returns:
-        a nested list (num_blocks x trials_per_block) of lists of different
-        lengths corresponding to the number of timesteps in each trial
+    """
+    Functionality: Simulate a single fly experiment with given plasticity coefficients.
+    Inputs: 
+        key (int): Seed for the random number generator.
+        cfg (object): Configuration object containing the model settings.
+        params (list): List of tuples (weights, biases) for each layer.
+        plasticity_coeffs (array): Array of plasticity coefficients.
+        plasticity_func (function): Plasticity function.
+        odor_mus (array): Array of odor means.
+        odor_sigmas (array): Array of odor standard deviations.
+    Returns: A nested list (num_blocks x trials_per_block) of lists of different lengths corresponding to the number of timesteps in each trial.
     """
 
     r_history = collections.deque(
@@ -167,10 +186,18 @@ def generate_trial(
     odor_mus,
     odor_sigmas,
 ):
-    """Simulate a single fly trial, which ends when the fly accepts odor
-    Returns:
-        a tuple containing lists of xs, odors, decisions (sampled outputs),
-        rewards, and expected_rewards for the trial
+    """
+    Functionality: Simulate a single fly trial, which ends when the fly accepts odor.
+    Inputs: 
+        key (int): Seed for the random number generator.
+        params (list): List of tuples (weights, biases) for each layer.
+        plasticity_coeffs (array): Array of plasticity coefficients.
+        plasticity_func (function): Plasticity function.
+        rewards_in_arena (array): Array of rewards in the arena.
+        r_history (deque): History of rewards.
+        odor_mus (array): Array of odor means.
+        odor_sigmas (array): Array of odor standard deviations.
+    Returns: A tuple containing lists of xs, odors, decisions (sampled outputs), rewards, and expected_rewards for the trial.
     """
 
     input_xs, trial_odors, neural_recordings, decisions = [], [], [], []
@@ -224,6 +251,13 @@ def generate_trial(
 
 
 def expected_reward_for_exp_data(R, moving_avg_window):
+    """
+    Functionality: Calculate expected rewards for experimental data.
+    Inputs: 
+        R (array): Array of rewards.
+        moving_avg_window (int): Size of the moving average window.
+    Returns: Array of expected rewards.
+    """
     r_history = collections.deque(moving_avg_window * [0], maxlen=moving_avg_window)
     expected_rewards = []
     for r in R:
@@ -233,6 +267,14 @@ def expected_reward_for_exp_data(R, moving_avg_window):
 
 
 def load_adi_expdata(key, cfg, mode):
+    """
+    Functionality: Load experimental data for training or evaluation.
+    Inputs: 
+        key (int): Seed for the random number generator.
+        cfg (object): Configuration object containing the model settings.
+        mode (str): Mode of operation ("train" or "eval").
+    Returns: 5 dictionaries corresponding with experiment number (int) as key, with tensors as values.
+    """
     print(f"Loading {mode} experimental data...")
 
     xs, neural_recordings, decisions, rewards, expected_rewards = {}, {}, {}, {}, {}
@@ -292,10 +334,22 @@ def load_adi_expdata(key, cfg, mode):
 
 
 def get_trial_lengths(decisions):
+    """
+    Functionality: Get the lengths of trials.
+    Inputs: 
+        decisions (array): Array of decisions.
+    Returns: Array of trial lengths.
+    """
     trial_lengths = jnp.sum(jnp.logical_not(jnp.isnan(decisions)), axis=1).astype(int)
     return trial_lengths
 
 
 def get_logits_mask(decisions):
+    """
+    Functionality: Get a mask for the logits.
+    Inputs: 
+        decisions (array): Array of decisions.
+    Returns: Array representing the mask for the logits.
+    """
     logits_mask = jnp.logical_not(jnp.isnan(decisions)).astype(int)
     return logits_mask
