@@ -11,7 +11,7 @@ import jax.numpy as jnp
 def behavior_ce_loss(decisions, logits):
     """
     Functionality: Computes the mean of the element-wise cross entropy between decisions and logits.
-    Inputs: 
+    Inputs:
         decisions (array): Array of decisions.
         logits (array): Array of logits.
     Returns: Mean of the element-wise cross entropy.
@@ -23,7 +23,7 @@ def behavior_ce_loss(decisions, logits):
 def compute_mse(neural_recordings, layer_activations):
     """
     Functionality: Computes the mean of the element-wise mean squared error between neural recordings and layer activations.
-    Inputs: 
+    Inputs:
         neural_recordings (array): Array of neural recordings.
         layer_activations (array): Array of layer activations.
     Returns: Mean of the element-wise mean squared error.
@@ -33,11 +33,16 @@ def compute_mse(neural_recordings, layer_activations):
 
 
 def neural_mse_loss(
-    key, logits_mask, recording_sparsity, measurement_noise_scale, neural_recordings, activations
+    key,
+    logits_mask,
+    recording_sparsity,
+    measurement_noise_scale,
+    neural_recordings,
+    activations,
 ):
     """
     Functionality: Computes the mean squared error loss for neural activity.
-    Inputs: 
+    Inputs:
         key (int): Seed for the random number generator.
         logits_mask (array): Mask for the logits.
         recording_sparsity (float): Sparsity of the neural recordings.
@@ -60,7 +65,9 @@ def neural_mse_loss(
     recordings_mask[recordings_id] = 1.0
     # add gaussian noise to the neural recordings
 
-    measurement_error = measurement_noise_scale * jax.random.normal(key, neural_recordings.shape)
+    measurement_error = measurement_noise_scale * jax.random.normal(
+        key, neural_recordings.shape
+    )
     assert measurement_error.shape == neural_recordings.shape
     neural_recordings = neural_recordings + measurement_error
 
@@ -88,7 +95,7 @@ def loss(
 ):
     """
     Functionality: Computes the total loss for the model.
-    Inputs: 
+    Inputs:
         key (int): Seed for the random number generator.
         params (array): Array of parameters.
         plasticity_coeff (array): Array of plasticity coefficients.

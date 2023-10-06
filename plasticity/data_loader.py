@@ -18,7 +18,7 @@ from plasticity.utils import create_nested_list
 def load_data(key, cfg, mode="train"):
     """
     Functionality: Load data for training or evaluation.
-    Inputs: 
+    Inputs:
         key (int): Seed for the random number generator.
         cfg (object): Configuration object containing the model settings.
         mode (str, optional): Mode of operation ("train" or "eval"). Default is "train".
@@ -27,23 +27,20 @@ def load_data(key, cfg, mode="train"):
     assert mode in ["train", "eval"]
     if cfg.use_experimental_data:
         return load_adi_expdata(key, cfg, mode)
-    
+
     else:
         generation_coeff, generation_func = synapse.init_plasticity(
             key, cfg, mode="generation_model"
         )
-        return generate_experiments_data(key, cfg, generation_coeff, generation_func, mode)
+        return generate_experiments_data(
+            key, cfg, generation_coeff, generation_func, mode
+        )
 
-def generate_experiments_data(
-    key,
-    cfg,
-    plasticity_coeff,
-    plasticity_func,
-    mode
-):
+
+def generate_experiments_data(key, cfg, plasticity_coeff, plasticity_func, mode):
     """
     Functionality: Simulate all fly experiments with given plasticity coefficients.
-    Inputs: 
+    Inputs:
         key (int): Seed for the random number generator.
         cfg (object): Configuration object containing the model settings.
         plasticity_coeff (array): Array of plasticity coefficients.
@@ -53,7 +50,8 @@ def generate_experiments_data(
     """
     if mode == "train":
         num_experiments = cfg.num_train
-    else: num_experiments = cfg.num_eval
+    else:
+        num_experiments = cfg.num_eval
     xs, odors, neural_recordings, decisions, rewards, expected_rewards = (
         {},
         {},
@@ -124,7 +122,7 @@ def generate_experiment(
 ):
     """
     Functionality: Simulate a single fly experiment with given plasticity coefficients.
-    Inputs: 
+    Inputs:
         key (int): Seed for the random number generator.
         cfg (object): Configuration object containing the model settings.
         params (list): List of tuples (weights, biases) for each layer.
@@ -188,7 +186,7 @@ def generate_trial(
 ):
     """
     Functionality: Simulate a single fly trial, which ends when the fly accepts odor.
-    Inputs: 
+    Inputs:
         key (int): Seed for the random number generator.
         params (list): List of tuples (weights, biases) for each layer.
         plasticity_coeffs (array): Array of plasticity coefficients.
@@ -253,7 +251,7 @@ def generate_trial(
 def expected_reward_for_exp_data(R, moving_avg_window):
     """
     Functionality: Calculate expected rewards for experimental data.
-    Inputs: 
+    Inputs:
         R (array): Array of rewards.
         moving_avg_window (int): Size of the moving average window.
     Returns: Array of expected rewards.
@@ -269,7 +267,7 @@ def expected_reward_for_exp_data(R, moving_avg_window):
 def load_adi_expdata(key, cfg, mode):
     """
     Functionality: Load experimental data for training or evaluation.
-    Inputs: 
+    Inputs:
         key (int): Seed for the random number generator.
         cfg (object): Configuration object containing the model settings.
         mode (str): Mode of operation ("train" or "eval").
@@ -283,7 +281,8 @@ def load_adi_expdata(key, cfg, mode):
     input_dim = cfg.layer_sizes[0]
     if mode == "train":
         num_sampling = cfg.num_train
-    else: num_sampling = cfg.num_eval
+    else:
+        num_sampling = cfg.num_eval
     for sample_i in range(num_sampling):
         key, _ = split(key)
         file = f"Fly{cfg.flyid}.mat"
@@ -320,14 +319,16 @@ def load_adi_expdata(key, cfg, mode):
                 d_tensor[i][j] = exp_decisions[i][j]
         decisions[sample_i] = d_tensor
 
-        xs_tensor = np.full((num_trials, max_trial_length, input_dim), 0.)
+        xs_tensor = np.full((num_trials, max_trial_length, input_dim), 0.0)
         for i in range(num_trials):
             for j in range(trial_lengths[i]):
                 xs_tensor[i][j] = exp_xs[i][j]
         xs[sample_i] = xs_tensor
 
         rewards[sample_i] = R
-        expected_rewards[sample_i] = expected_reward_for_exp_data(R, cfg.moving_avg_window)
+        expected_rewards[sample_i] = expected_reward_for_exp_data(
+            R, cfg.moving_avg_window
+        )
         neural_recordings[sample_i] = None
 
     return xs, neural_recordings, decisions, rewards, expected_rewards
@@ -336,7 +337,7 @@ def load_adi_expdata(key, cfg, mode):
 def get_trial_lengths(decisions):
     """
     Functionality: Get the lengths of trials.
-    Inputs: 
+    Inputs:
         decisions (array): Array of decisions.
     Returns: Array of trial lengths.
     """
@@ -347,7 +348,7 @@ def get_trial_lengths(decisions):
 def get_logits_mask(decisions):
     """
     Functionality: Get a mask for the logits.
-    Inputs: 
+    Inputs:
         decisions (array): Array of decisions.
     Returns: Array representing the mask for the logits.
     """

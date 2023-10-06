@@ -70,13 +70,18 @@ def init_random(key):
     assert key is not None, "For random initialization, a random key has to be given"
     return generate_gaussian(key, (3, 3, 3), scale=1e-5)
 
+
 def split_init_string(s):
     """
     Functionality: Splits an initialization string into a list of matches.
     Inputs: s (str): Initialization string.
     Returns: A list of matches.
     """
-    return [match.replace(" ", "") for match in re.findall(r'(-?\s*[A-Za-z0-9.]+[A-Za-z][0-9]*)', s)]
+    return [
+        match.replace(" ", "")
+        for match in re.findall(r"(-?\s*[A-Za-z0-9.]+[A-Za-z][0-9]*)", s)
+    ]
+
 
 def extract_numbers(s):
     """
@@ -85,13 +90,14 @@ def extract_numbers(s):
     Inputs: s (str): String to extract numbers from.
     Returns: A tuple of extracted numbers.
     """
-    x = int(re.search('X(\d+)', s).group(1))
-    y_or_r = int(re.search('[YR](\d+)', s).group(1))
-    w = int(re.search('W(\d+)', s).group(1))
-    multiplier_match = re.search('^(-?\d+\.?\d*)', s)
-    multiplier = float(multiplier_match.group(1)) if multiplier_match else 1.
-    assert x<3 and y_or_r<3 and w<3, "X, Y/R and W must be between 0 and 2"
+    x = int(re.search("X(\d+)", s).group(1))
+    y_or_r = int(re.search("[YR](\d+)", s).group(1))
+    w = int(re.search("W(\d+)", s).group(1))
+    multiplier_match = re.search("^(-?\d+\.?\d*)", s)
+    multiplier = float(multiplier_match.group(1)) if multiplier_match else 1.0
+    assert x < 3 and y_or_r < 3 and w < 3, "X, Y/R and W must be between 0 and 2"
     return x, y_or_r, w, multiplier
+
 
 def init_generation_volterra(init):
     """
@@ -106,6 +112,7 @@ def init_generation_volterra(init):
         parameters[x][y_or_r][w] = multiplier
 
     return jnp.array(parameters), volterra_plasticity_function
+
 
 def init_plasticity_volterra(key, init):
     init_functions = {

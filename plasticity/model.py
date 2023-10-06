@@ -12,7 +12,7 @@ from statistics import mean
 def initialize_params(key, cfg, scale=0.01, last_layer_multiplier=5.0):
     """
     Functionality: Initialize parameters for the network.
-    Inputs: 
+    Inputs:
         key (int): Seed for the random number generator.
         cfg (object): Configuration object containing the model settings.
         scale (float, optional): Scale for the Gaussian distribution used to initialize the parameters. Default is 0.01.
@@ -47,7 +47,7 @@ def initialize_params(key, cfg, scale=0.01, last_layer_multiplier=5.0):
 def network_forward(params, inputs):
     """
     Functionality: Performs a forward pass for the network.
-    Inputs: 
+    Inputs:
         params (list): List of tuples (weights, biases) for each layer.
         inputs (array): Input data.
     Returns: Activations for all layers, and logits.
@@ -77,7 +77,7 @@ def simulate(
 ):
     """Simulate an experiment with given plasticity coefficients,
        vmap over timesteps within a trial, and scan over all trials
-    Inputs: 
+    Inputs:
         initial_params (list): Initial parameters for the network.
         plasticity_coeffs (array): Array of plasticity coefficients.
         plasticity_func (function): Plasticity function.
@@ -149,7 +149,7 @@ def update_params(
 ):
     """
     Functionality: Updates the parameters of the network, assuming plasticity happens in the first layer only.
-    Inputs: 
+    Inputs:
         params (list): List of tuples (weights, biases) for each layer.
         activations (array): Array of activations.
         plasticity_coeffs (array): Array of plasticity coefficients.
@@ -202,7 +202,7 @@ def evaluate(
 ):
     """
     Functionality: Evaluates logits, weight trajectory for generation_coeff and plasticity_coeff with new initial params, for a single new experiment.
-    Inputs: 
+    Inputs:
         key (int): Seed for the random number generator.
         cfg (object): Configuration object containing the model settings.
         plasticity_coeff (array): Array of plasticity coefficients.
@@ -303,7 +303,7 @@ def evaluate_r2_score(
 ):
     """
     Functionality: Evaluates the R2 score for weights and activity.
-    Inputs: 
+    Inputs:
         logits_mask (array): Mask for the logits.
         params_trajec (array): Array of parameters trajectory.
         activations (array): Array of activations.

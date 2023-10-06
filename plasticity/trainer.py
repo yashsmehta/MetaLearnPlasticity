@@ -45,7 +45,7 @@ def train(cfg):
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(plasticity_coeff)
     expdata = {}
-    noise_key = jax.random.PRNGKey(10*cfg.flyid)
+    noise_key = jax.random.PRNGKey(10 * cfg.flyid)
     for epoch in range(cfg.num_epochs + 1):
         for exp_i in decisions:
             noise_key, _ = split(noise_key)
@@ -92,7 +92,10 @@ def train(cfg):
         )
         df["percent_deviance"] = percent_deviance
         if not cfg.use_experimental_data:
-            df["r2_weights"], df["r2_activity"] = r2_score["weights"], r2_score["activity"]
+            df["r2_weights"], df["r2_activity"] = (
+                r2_score["weights"],
+                r2_score["activity"],
+            )
 
     for key, value in cfg.items():
         if isinstance(value, (float, int, str)):
