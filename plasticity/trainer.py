@@ -41,7 +41,7 @@ def train(cfg):
     ) = data_loader.load_data(key, cfg)
 
     print(f"loaded data in: {round(time.time() - start, 3)}!")
-    loss_value_and_grad = jax.value_and_grad(losses.celoss, argnums=2)
+    loss_value_and_grad = jax.value_and_grad(losses.loss, argnums=2)
     optimizer = optax.adam(learning_rate=1e-3)
     opt_state = optimizer.init(plasticity_coeff)
     expdata = {}
@@ -49,20 +49,6 @@ def train(cfg):
     for epoch in range(cfg.num_epochs + 1):
         for exp_i in decisions:
             noise_key, _ = split(noise_key)
-            # loss = losses.celoss(
-            #     noise_key,
-            #     params,
-            #     plasticity_coeff,
-            #     plasticity_func,
-            #     resampled_xs[exp_i],
-            #     rewards[exp_i],
-            #     expected_rewards[exp_i],
-            #     neural_recordings[exp_i],
-            #     decisions[exp_i],
-            #     cfg,
-            # )
-            # print(f"loss: {loss}")
-            # exit()
 
             loss, meta_grads = loss_value_and_grad(
                 noise_key,
