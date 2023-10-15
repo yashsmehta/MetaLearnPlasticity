@@ -26,7 +26,7 @@ def load_data(key, cfg, mode="train"):
     """
     assert mode in ["train", "eval"]
     if cfg.use_experimental_data:
-        return load_adi_expdata(key, cfg, mode)
+        return load_fly_expdata(key, cfg, mode)
 
     else:
         generation_coeff, generation_func = synapse.init_plasticity(
@@ -264,7 +264,7 @@ def expected_reward_for_exp_data(R, moving_avg_window):
     return np.array(expected_rewards)
 
 
-def load_adi_expdata(key, cfg, mode):
+def load_fly_expdata(key, cfg, mode):
     """
     Functionality: Load experimental data for training or evaluation.
     Inputs:
