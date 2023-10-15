@@ -4,40 +4,50 @@ import numpy as np
 
 
 if __name__ == "__main__":
+    # coeff_mask is used to vary the trainable parameters in the taylor series.
+    # so coeff_mask[:,:,0] = 1, would pass the gradients through only term in the taylor series without weight dependence (since W^0)
     coeff_mask = np.zeros((3, 3, 3))
     coeff_mask[:, :, 0] = 1
     coeff_mask[:, :, 1] = 1
 
     cfg_dict = {
-        "num_train": 3,
+        "num_train": 3,  # number of trajectories in the training set. each simulated one with different initial weights.
         "num_eval": 5,
         "num_epochs": 250,
-        "trials_per_block": 80,
+        "trials_per_block": 80,  # total length of trajectory is number of blocks * trails per block
+        "num_blocks": 3,  # each block can have different reward probabilities/ratios for the odors
+        "reward_ratios": (
+            (0.2, 0.8),
+            (0.9, 0.1),
+            (0.2, 0.8),
+        ),  # A:B reward probabilities for corresponding to each block
+        "log_expdata": True,  # flag to save the training data
         "log_interval": 25,  # log training data every x epochs
-        "num_blocks": 3,
-        "reward_ratios": ((0.2, 0.8), (0.9, 0.1), (0.2, 0.8)),
-        "log_expdata": True,
-        "use_experimental_data": False,
-        "flyid": 1,
-        "fit_data": "behavior",  # searches for words: "neural", "behavior"
+        "use_experimental_data": False,  # use simulated or experimental data
+        "flyid": 1,  # flyid saved for parallel runs on cluster
+        "fit_data": "behavior",  # code searches for words: "neural", "behavior", corresponding to fitting on neural activity recordings or binary behavioral choices
         "neural_recording_sparsity": 1.0,  # sparsity of 1. means all neurons are recorded
         "measurement_noise_scale": 0.0,  # scale of gaussian noise added to neural recordings would be measurement_noise * firing_rate
-        "layer_sizes": "[2, 10, 1]",  # [input_dim, hidden_dim, output_dim], only 2, 3 layer network supported
-        "input_firing_mean": 0.75,
-        "input_variance": 0.05,
-        "l1_regularization": 1e-2,  # 5e-2 # only for volterra model
-        "generation_coeff_init": "X1R1W0",  # "X1R1W0"
-        "generation_model": "volterra",  # "volterra" or "mlp
-        "plasticity_coeff_init": "random",  # "random", "zeros" or "reward"
-        "plasticity_model": "volterra",  # "volterra" or "mlp
-        "meta_mlp_layer_sizes": [3, 10, 1],  # [3, hidden_dim, 1]
-        "moving_avg_window": 10,
-        "data_dir": "../data/",
-        "log_dir": "logs/",
+        "layer_sizes": "[2, 10, 1]",  # network [input_dim, hidden_dim, output_dim], only 2, 3 layer network supported, since we're modeling plasticity in a single layer
+        "input_firing_mean": 0.75,  # stimulus is encoded as firing neurons. mean value of firing input neuron
+        "input_variance": 0.05,  # variance of input encoding of stimulus
+        "l1_regularization": 1e-2,  # L1 regularizer on the taylor series params to enforce sparse solutions
+        "generation_coeff_init": "X1R1W0",  # simulated data underlying rule, integers are the corresponding powers, so X1R1W0 would be XR.
+        "generation_model": "volterra",  # "volterra" (this just means taylor, it's called volterra in the code, to be consistent with prior literature) or "mlp"
+        "plasticity_coeff_init": "random",  # initializations for the parameters of the plasticity rule, "random", "zeros" or "reward"
+        "plasticity_model": "volterra",  # "volterra" or "mlp (what is the functional family of the plasticity model)
+        "meta_mlp_layer_sizes": [
+            3,
+            10,
+            1,
+        ],  # [3, hidden_dim, 1] (if functional family is MLP, then define parameters)
+        "moving_avg_window": 10,  # define the window for calculating expected reward, E[R]
+        "data_dir": "../data/",  # directory to load experimental data
+        "log_dir": "logs/",  # directory to save experimental data
         "trainable_coeffs": int(np.sum(coeff_mask)),
         "coeff_mask": coeff_mask.tolist(),
-        "exp_name": "eval",
-        "reward_term": "reward",
+        "exp_name": "eval",  # logs are stored under a directory created under this name
+        "reward_term": "reward",  # reward or expected_reward. Note, this is a dummy config, one needs to manually change the reward_term variable, in model.update_params()
     }
 
     cfg = OmegaConf.create(cfg_dict)
@@ -46,4 +56,3 @@ if __name__ == "__main__":
     cfg = OmegaConf.merge(cfg, config)
 
     trainer.train(cfg)
-    # evaluate.simulate_model(cfg)
